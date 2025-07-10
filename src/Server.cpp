@@ -52,8 +52,22 @@ int main(int argc, char **argv) {
 
   // Uncomment this block to pass the first stage
   // 
-  accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+  int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
   std::cout << "Client connected\n";
+
+  char buffer[1024];
+  while(ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer), 0)) {
+    if (bytes_read < 0) {
+      std::cerr << "recv failed\n";
+      break;
+    }
+    if(strncmp(buffer, "*1\r\n$4\r\nPING\r\n", bytes_read) == 0) {
+      send(client_fd, "+PONG\r\n", 7, 0);
+    }
+    if (bytes_read == 0) {
+      break;
+    }
+  }
   // 
   close(server_fd);
 
