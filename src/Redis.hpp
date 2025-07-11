@@ -84,7 +84,6 @@ public:
 
         std::string command = items.front().strVal;
         std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-        std::cout << command << std::endl;
         if (command == "echo") {
             items.erase(items.begin());
             sendCommand(items, client_fd);
@@ -128,8 +127,12 @@ public:
                 result.type = REPLY_NIL;
             }
             sendCommand({result}, client_fd);
-        } else if(command == "config get") {
-            sendCommand({RedisReply("dir"), RedisReply(kv["dir"])}, client_fd);
+        } else if(command == "config") {
+            command = items[1].strVal;
+            std::transform(command.begin(), command.end(), command.begin(), ::tolower);
+            if(command == "get") {
+                sendCommand({RedisReply(items[2].strVal), RedisReply(kv[items[2].strVal])}, client_fd);
+            }
         }
     }
 
