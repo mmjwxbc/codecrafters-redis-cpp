@@ -30,12 +30,14 @@ private:
 public:
     Redis(std::string dir, std::string dbfilename, const std::string& host = Protocol::DEFAULT_HOST, int port = Protocol::DEFAULT_PORT, int connection_backlog = 5)
         : sockfd(-1), host(host), port(port), connection_backlog(connection_backlog) {
-        std::cout << "Redis" << std::endl;
-        std::cout << dir << std::endl;
-        std::cout << dbfilename << std::endl;
+        // std::cout << "Redis" << std::endl;
+        // std::cout << dir << std::endl;
+        // std::cout << dbfilename << std::endl;
 
         kv.insert_or_assign("dir", std::move(dir));
         kv.insert_or_assign("dbfilename", std::move(dbfilename));
+        // std::cout << kv["dir"] << std::endl;
+        // std::cout << kv["dbfilename"] << std::endl;
         bind_listen();
     }
 
@@ -138,7 +140,7 @@ public:
             if(command == "get") {
                 auto response = makeArray({
                     makeBulk("dir"),
-                    makeBulk("/tmp/redis-files")
+                    makeBulk(kv["dir"])
                 });
                 sendCommand({response}, client_fd);
             }
