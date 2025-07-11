@@ -78,7 +78,7 @@ public:
     void process_command(RedisReply reply, const int client_fd) {
         std::vector<RedisReply> &items = reply.elements;
         
-        transform(items.front().strVal.begin(),items.front().strVal.end(),items.front().strVal.begin(),::tolower);
+        transform(items.front().strVal.begin(),items.front().strVal.end(),items.front().strVal.begin(),::toupper);
         if(items.front().strVal == "ECHO") {
             items.erase(items.begin());
             sendCommand(items, client_fd);
