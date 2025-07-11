@@ -12,6 +12,7 @@
 #include <cctype>
 #include <algorithm>
 #include <vector>
+#include <map>
 #include "Protocol.hpp"
 
 class Redis {
@@ -21,7 +22,7 @@ private:
     int port;
     std::stringstream buffer;  // 用于包装为 RedisInputStream
     int connection_backlog = 5;
-    
+    std::map<std::string, std::string> kv;
 
 public:
     Redis(const std::string& host = Protocol::DEFAULT_HOST, int port = Protocol::DEFAULT_PORT, int connection_backlog = 5)
@@ -57,7 +58,6 @@ public:
 
     void sendCommand(const std::vector<RedisReply> &items, const int client_fd) {
         std::string formatted = formatCommand(items);
-        std::cout << "formatted : " << formatted << std::endl;
         ::send(client_fd, formatted.c_str(), formatted.size(), 0);
     }
 
@@ -67,8 +67,7 @@ public:
         ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
         if (n < 0) throw std::runtime_error("Read error or connection closed");
         else if (n == 0) {
-            // close(client_fd);
-            return std::nullopt; // 显式返回空值
+            return std::nullopt;
         }
         buffer.write(buf, n);
         RedisInputStream ris(buffer);
@@ -76,17 +75,45 @@ public:
     }
 
     void process_command(RedisReply reply, const int client_fd) {
-        std::vector<RedisReply> &items = reply.elements;
-        
-        transform(items.front().strVal.begin(),items.front().strVal.end(),items.front().strVal.begin(),::toupper);
-        if(items.front().strVal == "ECHO") {
-            items.erase(items.begin());
-            sendCommand(items, client_fd);
-        } else if(items.front().strVal == "PING") {
-            RedisReply redisreply{};
-            redisreply.strVal = "PONG";
-            sendCommand({redisreply}, client_fd);
+    std::vector<RedisReply> &items = reply.elements;
+
+    std::string command = items.front().strVal;
+    std::transform(command.begin(), command.end(), command.begin(), ::tolower);
+
+    if (command == "echo") {
+        items.erase(items.begin());
+        sendCommand(items, client_fd);
+
+    } else if (command == "ping") {
+        RedisReply pong;
+        pong.type = REPLY_STRING;
+        pong.strVal = "PONG";
+        sendCommand({pong}, client_fd);
+
+    } else if (command == "set") {
+        if (items.size() < 3) return;
+        std::string key = items[1].strVal;
+        std::string value = items[2].strVal;
+        // store[key] = value;
+        kv.insert_or_assign(key, value);
+        RedisReply ok;
+        ok.type = REPLY_STRING;
+        ok.strVal = "OK";
+        sendCommand({ok}, client_fd);
+
+    } else if (command == "get") {
+        if (items.size() < 2) return;
+        std::string key = items[1].strVal;
+
+        RedisReply result;
+        if (kv.count(key)) {
+            result.type = REPLY_BULK;
+            result.strVal = kv[key];
+        } else {
+            result.type = REPLY_NIL;
         }
+        sendCommand({result}, client_fd);
+    }
     }
 
     // // Example command wrappers
@@ -104,14 +131,36 @@ public:
     // }
 
 private:
-    std::string formatCommand(const std::vector<RedisReply>& items) {
-        std::ostringstream oss;
-        // oss << "*" << parts.size() << "\r\n";
-        for (const auto& p : items) {
-            oss << "$" << p.strVal.size() << "\r\n" << p.strVal << "\r\n";
+std::string formatCommand(const std::vector<RedisReply>& items) {
+    std::ostringstream oss;
+    for (const auto& r : items) {
+        switch (r.type) {
+            case REPLY_STRING:
+                oss << "+" << r.strVal << "\r\n";
+                break;
+            case REPLY_ERROR:
+                oss << "-" << r.strVal << "\r\n";
+                break;
+            case REPLY_INTEGER:
+                oss << ":" << r.intVal << "\r\n";
+                break;
+            case REPLY_BULK:
+                oss << "$" << r.strVal.size() << "\r\n" << r.strVal << "\r\n";
+                break;
+            case REPLY_NIL:
+                oss << "$-1\r\n";
+                break;
+            case REPLY_ARRAY:
+                oss << "*" << r.elements.size() << "\r\n";
+                for (const auto& sub : r.elements) {
+                    oss << formatCommand({sub});
+                }
+                break;
         }
-        return oss.str();
     }
+    return oss.str();
+}
+
 };
 
 #endif // REDIS_HH
