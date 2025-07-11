@@ -84,7 +84,7 @@ public:
 
         std::string command = items.front().strVal;
         std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-
+        std::cout << command << std::endl;
         if (command == "echo") {
             items.erase(items.begin());
             sendCommand(items, client_fd);
