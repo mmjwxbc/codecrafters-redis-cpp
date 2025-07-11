@@ -57,6 +57,7 @@ public:
 
     void sendCommand(const std::vector<RedisReply> &items, const int client_fd) {
         std::string formatted = formatCommand(items);
+        cout << "formatted : " << formatted << endl;
         ::send(client_fd, formatted.c_str(), formatted.size(), 0);
     }
 
