@@ -1,6 +1,7 @@
 #ifndef REDIS_HH
 #define REDIS_HH
 
+#include <cstddef>
 #include <string>
 #include <stdexcept>
 #include <netdb.h>
@@ -13,6 +14,7 @@
 #include <algorithm>
 #include <vector>
 #include <map>
+#include <chrono>
 #include "Protocol.hpp"
 
 class Redis {
@@ -23,6 +25,7 @@ private:
     std::stringstream buffer;  // 用于包装为 RedisInputStream
     int connection_backlog = 5;
     std::map<std::string, std::string> kv;
+    std::map<std::string, int64_t> key_elapsed_time;
 
 public:
     Redis(const std::string& host = Protocol::DEFAULT_HOST, int port = Protocol::DEFAULT_PORT, int connection_backlog = 5)
@@ -94,17 +97,27 @@ public:
         if (items.size() < 3) return;
         std::string key = items[1].strVal;
         std::string value = items[2].strVal;
+        if(items.size() == 5) {
+            std::transform(items[3].strVal.begin(), items[3].strVal.end(), command.begin(), ::tolower);
+            if(items[3].strVal == "PX") {
+                key_elapsed_time.insert_or_assign(key, get_millis() + std::stoi(items[4].strVal));
+            }
+        }
         // store[key] = value;
         kv.insert_or_assign(key, value);
         RedisReply ok;
         ok.type = REPLY_STRING;
         ok.strVal = "OK";
         sendCommand({ok}, client_fd);
-
     } else if (command == "get") {
         if (items.size() < 2) return;
         std::string key = items[1].strVal;
-
+        if(key_elapsed_time.count(key)) {
+            if(key_elapsed_time[key] <= get_millis()) {
+                key_elapsed_time.erase(key);
+                kv.erase(key);
+            }
+        }
         RedisReply result;
         if (kv.count(key)) {
             result.type = REPLY_BULK;
@@ -131,35 +144,41 @@ public:
     // }
 
 private:
-std::string formatCommand(const std::vector<RedisReply>& items) {
-    std::ostringstream oss;
-    for (const auto& r : items) {
-        switch (r.type) {
-            case REPLY_STRING:
-                oss << "+" << r.strVal << "\r\n";
-                break;
-            case REPLY_ERROR:
-                oss << "-" << r.strVal << "\r\n";
-                break;
-            case REPLY_INTEGER:
-                oss << ":" << r.intVal << "\r\n";
-                break;
-            case REPLY_BULK:
-                oss << "$" << r.strVal.size() << "\r\n" << r.strVal << "\r\n";
-                break;
-            case REPLY_NIL:
-                oss << "$-1\r\n";
-                break;
-            case REPLY_ARRAY:
-                oss << "*" << r.elements.size() << "\r\n";
-                for (const auto& sub : r.elements) {
-                    oss << formatCommand({sub});
-                }
-                break;
+    std::string formatCommand(const std::vector<RedisReply>& items) {
+        std::ostringstream oss;
+        for (const auto& r : items) {
+            switch (r.type) {
+                case REPLY_STRING:
+                    oss << "+" << r.strVal << "\r\n";
+                    break;
+                case REPLY_ERROR:
+                    oss << "-" << r.strVal << "\r\n";
+                    break;
+                case REPLY_INTEGER:
+                    oss << ":" << r.intVal << "\r\n";
+                    break;
+                case REPLY_BULK:
+                    oss << "$" << r.strVal.size() << "\r\n" << r.strVal << "\r\n";
+                    break;
+                case REPLY_NIL:
+                    oss << "$-1\r\n";
+                    break;
+                case REPLY_ARRAY:
+                    oss << "*" << r.elements.size() << "\r\n";
+                    for (const auto& sub : r.elements) {
+                        oss << formatCommand({sub});
+                    }
+                    break;
+            }
         }
+        return oss.str();
     }
-    return oss.str();
-}
+
+    int64_t get_millis() {
+        auto now = std::chrono::system_clock::now();
+        return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    }
+
 
 };
 
