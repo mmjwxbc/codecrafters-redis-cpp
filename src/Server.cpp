@@ -82,10 +82,6 @@ int main(int argc, char **argv) {
           close(i);
           continue;
         } else {
-            cout << "Type: ARRAY, Size: " << reply.value().elements.size() << endl;
-          for (size_t i = 0; i < reply.value().elements.size(); ++i) {
-              cout << "Element " << i << ": " << reply.value().elements[i].strVal << endl;
-          }
           redis.process_command(reply.value(), i);
         }
       }

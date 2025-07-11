@@ -99,7 +99,7 @@ public:
         std::string value = items[2].strVal;
         if(items.size() == 5) {
             std::transform(items[3].strVal.begin(), items[3].strVal.end(), command.begin(), ::tolower);
-            if(items[3].strVal == "PX") {
+            if(items[3].strVal == "px") {
                 key_elapsed_time.insert_or_assign(key, get_millis() + std::stoi(items[4].strVal));
             }
         }
