@@ -63,6 +63,7 @@ public:
 
     void sendCommand(const std::vector<RedisReply> &items, const int client_fd) {
         std::string formatted = formatCommand(items);
+        std::cout << formatted << std::endl;
         ::send(client_fd, formatted.c_str(), formatted.size(), 0);
     }
 
@@ -131,24 +132,14 @@ public:
             command = items[1].strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
             if(command == "get") {
-                sendCommand({RedisReply(items[2].strVal), RedisReply(kv[items[2].strVal])}, client_fd);
+                auto response = makeArray({
+                    makeBulk("dir"),
+                    makeBulk("/tmp/redis-files")
+                });
+                sendCommand({response}, client_fd);
             }
         }
     }
-
-    // // Example command wrappers
-    // void set(const std::string& key, const std::string& value) {
-    //     sendCommand("SET " + key + " " + value);
-    //     RedisReply reply = readReply();
-    //     // 可加断言 reply.type == REPLY_STRING && reply.strVal == "OK"
-    // }
-
-    // std::string get(const std::string& key) {
-    //     sendCommand("GET " + key);
-    //     RedisReply reply = readReply();
-    //     if (reply.type == REPLY_BULK) return reply.strVal;
-    //     throw std::runtime_error("GET failed or key not found");
-    // }
 
 private:
     std::string formatCommand(const std::vector<RedisReply>& items) {
@@ -186,6 +177,19 @@ private:
         return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     }
 
+    RedisReply makeBulk(const std::string& s) {
+        RedisReply r;
+        r.type = REPLY_BULK;
+        r.strVal = s;
+        return r;
+    }
+
+    RedisReply makeArray(const std::vector<RedisReply>& elements) {
+        RedisReply r;
+        r.type = REPLY_ARRAY;
+        r.elements = elements;
+        return r;
+    }
 
 };
 
