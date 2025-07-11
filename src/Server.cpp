@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
   while(true) {
     fd_set tmp = fdset;
     int ret = select(max_fd + 1, &tmp, NULL, NULL, NULL);
-    if(FD_ISSET(server_fd, &fdset)) {
+    if(FD_ISSET(server_fd, &tmp)) {
       int cfd = accept(server_fd, NULL, NULL);
       FD_SET(cfd, &fdset);
       max_fd = cfd > max_fd ? cfd : max_fd;
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
           close(i);
           continue;
         }
-        if(strncmp(buffer, "*1\r\n$4\r\nPING\r\n", bytes_read) == 0) {
+        if(strncmp(buffer, "*1\r\n$4\r\nPING\r\n", 15) == 0) {
           if(send(i, "+PONG\r\n", 7, 0) < 0) {
             perror("send error!!!");
             exit(1);
