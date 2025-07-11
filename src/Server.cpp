@@ -1,12 +1,15 @@
+#include <cstddef>
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <cstdio>
 #include <cstring>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/select.h>
 
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
@@ -42,32 +45,66 @@ int main(int argc, char **argv) {
     std::cerr << "listen failed\n";
     return 1;
   }
-  
-  struct sockaddr_in client_addr;
-  int client_addr_len = sizeof(client_addr);
-  std::cout << "Waiting for a client to connect...\n";
-
-  // You can use print statements as follows for debugging, they'll be visible when running tests.
-  std::cout << "Logs from your program will appear here!\n";
-
-  // Uncomment this block to pass the first stage
-  // 
-  int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-  std::cout << "Client connected\n";
-
+  fd_set fdset;
+  FD_ZERO(&fdset);
+  FD_SET(server_fd, &fdset);
+  int max_fd = server_fd;
   char buffer[1024];
-  while(ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer), 0)) {
-    if (bytes_read < 0) {
-      std::cerr << "recv failed\n";
-      break;
+  while(true) {
+    fd_set tmp = fdset;
+    int ret = select(max_fd + 1, &tmp, NULL, NULL, NULL);
+    if(FD_ISSET(server_fd, &fdset)) {
+      int cfd = accept(server_fd, NULL, NULL);
+      FD_SET(cfd, &fdset);
+      max_fd = cfd > max_fd ? cfd : max_fd;
     }
-    if(strncmp(buffer, "*1\r\n$4\r\nPING\r\n", bytes_read) == 0) {
-      send(client_fd, "+PONG\r\n", 7, 0);
-    }
-    if (bytes_read == 0) {
-      break;
+    for(int i = 0; i < max_fd + 1; i++) {
+      memset(buffer, 0, sizeof(buffer));
+      if(i != server_fd && FD_ISSET(i, &tmp)) {
+        ssize_t bytes_read = recv(i, buffer, sizeof(buffer), 0);
+        if(bytes_read == -1) {
+          perror("recv error!!!");
+          exit(1);
+        } else if(bytes_read == 0) {
+          FD_CLR(i, &fdset);
+          close(i);
+          continue;
+        }
+        if(strncmp(buffer, "*1\r\n$4\r\nPING\r\n", bytes_read) == 0) {
+          if(send(i, "+PONG\r\n", 7, 0) < 0) {
+            perror("send error!!!");
+            exit(1);
+          }
+        }
+      }
     }
   }
+
+  // struct sockaddr_in client_addr;
+  // int client_addr_len = sizeof(client_addr);
+  // std::cout << "Waiting for a client to connect...\n";
+
+  // // You can use print statements as follows for debugging, they'll be visible when running tests.
+  // std::cout << "Logs from your program will appear here!\n";
+
+  // // Uncomment this block to pass the first stage
+  // // 
+  // int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+  // std::cout << "Client connected\n";
+
+  // char buffer[1024];
+  // while(ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer), 0)) {
+  //   if (bytes_read < 0) {
+  //     std::cerr << "recv failed\n";
+  //     break;
+  //   }
+  //   if(strncmp(buffer, "*1\r\n$4\r\nPING\r\n", bytes_read) == 0) {
+  //     send(client_fd, "+PONG\r\n", 7, 0);
+  //   }
+  //   if (bytes_read == 0) {
+  //     break;
+  //   }
+  // }
   // 
   close(server_fd);
 
