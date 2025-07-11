@@ -19,6 +19,17 @@ int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
+  string dir, dbfiliname;
+  for (int i = 1; i < argc - 1; ++i) {
+    string key = argv[i];
+    if (key == "--dir") {  // key starts with --
+        dir = argv[i + 1];
+        ++i; // Skip value
+    } else if(key == "--dbfilename") {
+      dbfiliname = argv[i + 1];
+      ++i;
+    }
+  }
   
   // int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   // if (server_fd < 0) {
@@ -49,7 +60,7 @@ int main(int argc, char **argv) {
   //   std::cerr << "listen failed\n";
   //   return 1;
   // }
-  Redis redis{};
+  Redis redis(dir, dbfiliname);
   const int server_fd = redis.server_fd();
   fd_set fdset;
   FD_ZERO(&fdset);

@@ -28,8 +28,10 @@ private:
     std::map<std::string, int64_t> key_elapsed_time;
 
 public:
-    Redis(const std::string& host = Protocol::DEFAULT_HOST, int port = Protocol::DEFAULT_PORT, int connection_backlog = 5)
+    Redis(std::string dir, std::string dbfilename, const std::string& host = Protocol::DEFAULT_HOST, int port = Protocol::DEFAULT_PORT, int connection_backlog = 5)
         : sockfd(-1), host(host), port(port), connection_backlog(connection_backlog) {
+        kv.insert_or_assign("dir", std::move(dir));
+        kv.insert_or_assign("dbfilename", std::move(dbfilename));
         bind_listen();
     }
 
