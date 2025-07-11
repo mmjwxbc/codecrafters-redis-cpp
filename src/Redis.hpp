@@ -80,55 +80,57 @@ public:
     }
 
     void process_command(RedisReply reply, const int client_fd) {
-    std::vector<RedisReply> &items = reply.elements;
+        std::vector<RedisReply> &items = reply.elements;
 
-    std::string command = items.front().strVal;
-    std::transform(command.begin(), command.end(), command.begin(), ::tolower);
+        std::string command = items.front().strVal;
+        std::transform(command.begin(), command.end(), command.begin(), ::tolower);
 
-    if (command == "echo") {
-        items.erase(items.begin());
-        sendCommand(items, client_fd);
+        if (command == "echo") {
+            items.erase(items.begin());
+            sendCommand(items, client_fd);
 
-    } else if (command == "ping") {
-        RedisReply pong;
-        pong.type = REPLY_STRING;
-        pong.strVal = "PONG";
-        sendCommand({pong}, client_fd);
+        } else if (command == "ping") {
+            RedisReply pong;
+            pong.type = REPLY_STRING;
+            pong.strVal = "PONG";
+            sendCommand({pong}, client_fd);
 
-    } else if (command == "set") {
-        if (items.size() < 3) return;
-        std::string key = items[1].strVal;
-        std::string value = items[2].strVal;
-        if(items.size() == 5) {
-            std::transform(items[3].strVal.begin(), items[3].strVal.end(), command.begin(), ::tolower);
-            if(items[3].strVal == "px") {
-                key_elapsed_time.insert_or_assign(key, get_millis() + std::stoi(items[4].strVal));
+        } else if (command == "set") {
+            if (items.size() < 3) return;
+            std::string key = items[1].strVal;
+            std::string value = items[2].strVal;
+            if(items.size() == 5) {
+                std::transform(items[3].strVal.begin(), items[3].strVal.end(), command.begin(), ::tolower);
+                if(items[3].strVal == "px") {
+                    key_elapsed_time.insert_or_assign(key, get_millis() + std::stoi(items[4].strVal));
+                }
             }
-        }
-        // store[key] = value;
-        kv.insert_or_assign(key, value);
-        RedisReply ok;
-        ok.type = REPLY_STRING;
-        ok.strVal = "OK";
-        sendCommand({ok}, client_fd);
-    } else if (command == "get") {
-        if (items.size() < 2) return;
-        std::string key = items[1].strVal;
-        if(key_elapsed_time.count(key)) {
-            if(key_elapsed_time[key] <= get_millis()) {
-                key_elapsed_time.erase(key);
-                kv.erase(key);
+            // store[key] = value;
+            kv.insert_or_assign(key, value);
+            RedisReply ok;
+            ok.type = REPLY_STRING;
+            ok.strVal = "OK";
+            sendCommand({ok}, client_fd);
+        } else if (command == "get") {
+            if (items.size() < 2) return;
+            std::string key = items[1].strVal;
+            if(key_elapsed_time.count(key)) {
+                if(key_elapsed_time[key] <= get_millis()) {
+                    key_elapsed_time.erase(key);
+                    kv.erase(key);
+                }
             }
+            RedisReply result;
+            if (kv.count(key)) {
+                result.type = REPLY_BULK;
+                result.strVal = kv[key];
+            } else {
+                result.type = REPLY_NIL;
+            }
+            sendCommand({result}, client_fd);
+        } else if(command == "config get") {
+            sendCommand({RedisReply("dir"), RedisReply(kv["dir"])}, client_fd);
         }
-        RedisReply result;
-        if (kv.count(key)) {
-            result.type = REPLY_BULK;
-            result.strVal = kv[key];
-        } else {
-            result.type = REPLY_NIL;
-        }
-        sendCommand({result}, client_fd);
-    }
     }
 
     // // Example command wrappers
