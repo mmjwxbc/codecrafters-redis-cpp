@@ -175,12 +175,16 @@ public:
         } else if(command == "info") {
             std::string &arg = items[1].strVal;
             std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
-            if(arg == "replication") {
-                if(is_master) {
-                    sendCommand({makeBulk("role:master"), makeBulk(metadata["master_replid"]), makeBulk(metadata["master_repl_offset"])}, client_fd);
+            if (arg == "replication") {
+                std::ostringstream oss;
+                if (is_master) {
+                    oss << "role:master\n";
+                    oss << "master_replid:" << metadata["master_replid"] << "\n";
+                    oss << "master_repl_offset:" << metadata["master_repl_offset"] << "\n";
                 } else {
-                    sendCommand({makeBulk("role:slave")}, client_fd);
+                    oss << "role:slave\n";
                 }
+                sendCommand({makeBulk(oss.str())}, client_fd);
             }
         }
     }
