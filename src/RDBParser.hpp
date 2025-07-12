@@ -151,7 +151,7 @@ class RDBParser {
             while(true) {
                 uint8_t type = readByte();
                 if(type == 0xFE) {
-                    uint8_t cur_db = readByte();
+                    uint8_t cur_db = readLength();
                     std::cout << "cur db = " << cur_db << std::endl;
                     if(readByte() != 0xFB) {
                         throw std::runtime_error("parseDatabse hash table size failed");
