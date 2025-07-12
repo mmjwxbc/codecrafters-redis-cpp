@@ -1,4 +1,3 @@
-#include <optional>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
@@ -24,7 +23,7 @@ class RDBParser {
             return static_cast<uint8_t>(byte);
         }
 
-        void read_type_key_value(std::vector<std::unordered_map<std::string, std::string>> &kv, std::vector<std::unordered_map<std::string, int64_t>> &elapsed_time_kv, std::optional<uint64_t> mills, int cur_db) {
+        void read_type_key_value(std::vector<std::unordered_map<std::string, std::string>> &kv, std::vector<std::unordered_map<std::string, int64_t>> &elapsed_time_kv, uint64_t mills, int cur_db) {
             uint8_t type = readByte();
             if(type == 0x00) {
                 std::string key = readString();
@@ -159,7 +158,6 @@ class RDBParser {
                                 kv[cur_db].insert_or_assign(key, value);
                             } else if(type == 0xFC) {
                                 uint64_t mills = readMills();
-                                type = readByte();
                                 read_type_key_value(kv, elapsed_time_kv, mills, cur_db);
                             } else if(type == 0xFD) {
                                 uint64_t mills = readSeconds();
