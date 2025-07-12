@@ -86,7 +86,7 @@ private:
 
 public:
     inline static const std::string DEFAULT_HOST = "127.0.0.1";
-    inline static const int DEFAULT_PORT = 6378;
+    inline static const int DEFAULT_PORT = 6379;
 
     inline static const unsigned char DOLLAR_BYTE   = '$';
     inline static const unsigned char ASTERISK_BYTE = '*';
