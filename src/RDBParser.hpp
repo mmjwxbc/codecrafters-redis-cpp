@@ -133,6 +133,7 @@ class RDBParser {
 
                 std::string key = readString();
                 std::string value = readString();
+                std::cout << "key: " << key << " value: " << value << std::endl;
 
                 metadata.insert_or_assign(key, value);
             }
