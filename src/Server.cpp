@@ -66,7 +66,8 @@ int main(int argc, char **argv) {
   //   std::cerr << "listen failed\n";
   //   return 1;
   // }
-  Redis redis(dir, dbfiliname, port= port == -1 ? Protocol::DEFAULT_PORT : port);
+  port = (port == -1) ? Protocol::DEFAULT_PORT : port;
+  Redis redis(dir, dbfiliname, 0, port);
   const int server_fd = redis.server_fd();
   fd_set fdset;
   FD_ZERO(&fdset);
