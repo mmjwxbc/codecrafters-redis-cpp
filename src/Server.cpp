@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
-  string dir, dbfiliname;
+  string dir, dbfiliname, replicaof;
   int port = -1;
   for (int i = 1; i < argc - 1; ++i) {
     string key = argv[i];
@@ -32,6 +32,9 @@ int main(int argc, char **argv) {
       ++i;
     } else if(key == "--port") {
       port = stoi(argv[i + 1]);
+      ++i;
+    } else if(key == "--replicaof") {
+      replicaof = argv[i + 1];
       ++i;
     }
   }

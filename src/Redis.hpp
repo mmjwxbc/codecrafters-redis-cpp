@@ -32,9 +32,11 @@ private:
     std::vector<std::unordered_map<std::string, int64_t>> key_elapsed_time_dbs;
     std::unordered_map<std::string, std::string> metadata;
     bool is_master{true};
+    std::string remote_host;
+    int remote_port;
 
 public:
-    Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
+    Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
         : sockfd(-1), host(host), port(port), is_master(is_master), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16){
             std::cout << port << std::endl;
         if(!dir.empty() && !dbfilename.empty()) {
@@ -44,6 +46,11 @@ public:
                 rdb_parser.parseMetadata(metadata);
                 rdb_parser.parseDatabase(kvs, key_elapsed_time_dbs);
             }
+        }
+        if(!replicaof.empty()) {
+            int space_pos = replicaof.find(' ', 0);
+            remote_host = replicaof.substr(0, space_pos);
+            remote_port = std::stoi(replicaof.substr(space_pos + 1));
         }
         metadata.insert_or_assign("dir", dir);
         metadata.insert_or_assign("dbfilename", dbfilename);
@@ -167,7 +174,11 @@ public:
             std::string &arg = items[1].strVal;
             std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
             if(arg == "replication") {
-                sendCommand({makeBulk("role:master")}, client_fd);
+                if(is_master) {
+                    sendCommand({makeBulk("role:master")}, client_fd);
+                } else {
+                    sendCommand({makeBulk("role:slave")}, client_fd);
+                }
             }
         }
     }
