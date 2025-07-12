@@ -12,6 +12,7 @@ class RDBParser {
     private:
         std::string dir;
         std::string dbfilename;
+        std::string redis_version;
         std::ifstream file;
     public:
         RDBParser(std::string dir, std::string dbfilename) : dir(dir), dbfilename(dbfilename) {
@@ -128,9 +129,11 @@ class RDBParser {
         }
 
         void parseMetadata(std::unordered_map<std::string, std::string> &metadata) {
+            std::string redis_version(9, '\0');
+            file.read(&redis_version[0], 9);
             while (true) {
                 uint8_t type = readByte();
-                std::cout << "type: 0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(type) << std::dec << std::endl;
+                // std::cout << "type: 0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(type) << std::dec << std::endl;
                 if (type != 0xFA) {
                     file.unget();
                     break;
