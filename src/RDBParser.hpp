@@ -18,6 +18,8 @@ class RDBParser {
         RDBParser(std::string dir, std::string dbfilename) : dir(dir), dbfilename(dbfilename) {
             fs::path filepath = fs::path(dir) / dbfilename;
             file = std::ifstream(filepath, std::ios::binary);
+            std::cout << "filepath = " << filepath.string()
+              << " exists = " << std::boolalpha << fs::exists(filepath) << std::endl;
             if (!file.is_open()) {
                 throw std::runtime_error("Failed to open RDB file: " + filepath.string());
             }
