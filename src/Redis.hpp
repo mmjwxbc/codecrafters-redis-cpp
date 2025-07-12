@@ -79,6 +79,10 @@ public:
 
             // Send PING to master after connection
             sendCommand({makeArray({makeBulk("PING")})}, master_fd);
+            // REPLCONF listening-port <PORT>
+            sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(master_port))})}, master_fd);
+            // REPLCONF capa psync2
+            sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
         }
         metadata.insert_or_assign("dir", dir);
         metadata.insert_or_assign("dbfilename", dbfilename);
