@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
     int ret = select(max_fd + 1, &tmp, NULL, NULL, NULL);
     if(FD_ISSET(server_fd, &tmp)) {
       int cfd = accept(server_fd, NULL, NULL);
+      cout << "Connect " << cfd << endl;
       FD_SET(cfd, &fdset);
       max_fd = cfd > max_fd ? cfd : max_fd;
     }

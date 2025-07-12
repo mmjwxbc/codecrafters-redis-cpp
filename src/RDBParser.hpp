@@ -28,6 +28,7 @@ class RDBParser {
             if(type == 0x00) {
                 std::string key = readString();
                 std::string value = readString();
+                std::cout << "key: " << key << " value: " << value << std::endl;
                 kv[cur_db].insert_or_assign(key, value);
                 elapsed_time_kv[cur_db].insert_or_assign(key, mills);
             }
@@ -142,6 +143,7 @@ class RDBParser {
                 uint8_t type = readByte();
                 if(type == 0xFE) {
                     uint8_t cur_db = readByte();
+                    std::cout << "cur db = " << cur_db << std::endl;
                     if(readByte() != 0xFB) {
                         throw std::runtime_error("parseDatabse hash table size failed");
                         uint64_t kv_size = readLength(file);
@@ -155,6 +157,7 @@ class RDBParser {
                             if(type == 0x00) {
                                 std::string key = readString();
                                 std::string value = readString();
+                                std::cout << "key: " << key << " value: " << value << std::endl;
                                 kv[cur_db].insert_or_assign(key, value);
                             } else if(type == 0xFC) {
                                 uint64_t mills = readMills();
