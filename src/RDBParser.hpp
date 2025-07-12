@@ -22,6 +22,12 @@ class RDBParser {
                 throw std::runtime_error("Failed to open RDB file: " + filepath.string());
             }
         }
+
+        ~RDBParser() {
+            if (file.is_open()) {
+                file.close();
+            }
+        }
         uint8_t readByte() {
             char byte;
             file.read(&byte, 1);
