@@ -130,7 +130,7 @@ class RDBParser {
         void parseMetadata(std::unordered_map<std::string, std::string> &metadata) {
             while (true) {
                 uint8_t type = readByte();
-                std::cout << "type: " << type << std::endl;
+                std::cout << "type: 0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(type) << std::dec << std::endl;
                 if (type != 0xFA) {
                     file.unget();
                     break;
