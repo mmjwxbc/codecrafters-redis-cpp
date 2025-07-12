@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,6 +21,7 @@ int main(int argc, char **argv) {
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
   string dir, dbfiliname;
+  int port = -1;
   for (int i = 1; i < argc - 1; ++i) {
     string key = argv[i];
     if (key == "--dir") {  // key starts with --
@@ -27,6 +29,9 @@ int main(int argc, char **argv) {
         ++i; // Skip value
     } else if(key == "--dbfilename") {
       dbfiliname = argv[i + 1];
+      ++i;
+    } else if(key == "--port") {
+      port = stoi(argv[i + 1]);
       ++i;
     }
   }
@@ -61,7 +66,7 @@ int main(int argc, char **argv) {
   //   std::cerr << "listen failed\n";
   //   return 1;
   // }
-  Redis redis(dir, dbfiliname);
+  Redis redis(dir, dbfiliname, port= port == -1 ? Protocol::DEFAULT_PORT : port);
   const int server_fd = redis.server_fd();
   fd_set fdset;
   FD_ZERO(&fdset);
