@@ -94,6 +94,8 @@ public:
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
             // REPLCONF capa psync2
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
+            reply = readReply(master_fd);
+            sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
         }
         metadata.insert_or_assign("dir", dir);
         metadata.insert_or_assign("dbfilename", dbfilename);
