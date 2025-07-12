@@ -79,6 +79,19 @@ public:
 
             // Send PING to master after connection
             sendCommand({makeArray({makeBulk("PING")})}, master_fd);
+            char buf[65536];
+            while(true) {
+                std::optional<RedisReply> reply = readReply(master_fd);
+                if(reply.has_value()) {
+                    std::vector<RedisReply> &items = reply.value().elements;
+                    for(auto &item : items) {
+                        if(item.strVal == "PONG") {
+                            break;
+                        }
+                    }
+                }
+            }
+
             // REPLCONF listening-port <PORT>
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
             // REPLCONF capa psync2
