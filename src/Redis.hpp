@@ -31,10 +31,11 @@ private:
     std::vector<std::unordered_map<std::string, std::string>> kvs;
     std::vector<std::unordered_map<std::string, int64_t>> key_elapsed_time_dbs;
     std::unordered_map<std::string, std::string> metadata;
+    bool is_master{true};
 
 public:
-    Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
-        : sockfd(-1), host(host), port(port), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16){
+    Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
+        : sockfd(-1), host(host), port(port), is_master(is_master), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16){
             std::cout << port << std::endl;
         if(!dir.empty() && !dbfilename.empty()) {
             fs::path filepath = fs::path(dir) / dbfilename;
@@ -162,6 +163,12 @@ public:
                 }
             }
             sendCommand({reply}, client_fd);
+        } else if(command == "info") {
+            std::string &arg = items[1].strVal;
+            std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
+            if(arg == "replication") {
+                sendCommand({makeBulk("role:master")}, client_fd);
+            }
         }
     }
 
