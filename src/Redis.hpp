@@ -17,7 +17,8 @@
 #include "Protocol.hpp"
 #include "RDBParser.hpp"
 #include "util.hpp"
-
+#include <filesystem>
+namespace fs = std::filesystem;
 
 class Redis {
 private:
@@ -35,10 +36,12 @@ public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, const std::string& host = Protocol::DEFAULT_HOST, int port = Protocol::DEFAULT_PORT, int connection_backlog = 5)
         : sockfd(-1), host(host), port(port), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16){
         if(!dir.empty() && !dbfilename.empty()) {
-            // std::cout << "dir = " << dir << std::endl;
-            RDBParser rdb_parser(dir, dbfilename);
-            rdb_parser.parseMetadata(metadata);
-            rdb_parser.parseDatabase(kvs, key_elapsed_time_dbs);
+            fs::path filepath = fs::path(dir) / dbfilename;
+            if(fs::exists(filepath)) {
+                RDBParser rdb_parser(dir, dbfilename);
+                rdb_parser.parseMetadata(metadata);
+                rdb_parser.parseDatabase(kvs, key_elapsed_time_dbs);
+            }
         }
         metadata.insert_or_assign("dir", dir);
         metadata.insert_or_assign("dbfilename", dbfilename);
