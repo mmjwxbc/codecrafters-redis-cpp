@@ -54,6 +54,8 @@ public:
         }
         metadata.insert_or_assign("dir", dir);
         metadata.insert_or_assign("dbfilename", dbfilename);
+        metadata.insert_or_assign("master_replid", "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb");
+        metadata.insert_or_assign("master_repl_offset", "0");
         bind_listen();
     }
 
@@ -175,7 +177,7 @@ public:
             std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
             if(arg == "replication") {
                 if(is_master) {
-                    sendCommand({makeBulk("role:master")}, client_fd);
+                    sendCommand({makeBulk("role:master"), makeBulk(metadata["master_replid"]), makeBulk(metadata["master_repl_offset"])}, client_fd);
                 } else {
                     sendCommand({makeBulk("role:slave")}, client_fd);
                 }
