@@ -25,7 +25,7 @@ struct RedisReply {
     std::vector<RedisReply> elements;
 
     RedisReply() : type(REPLY_NIL), intVal(0) {}
-    RedisReply(std::string strVal) : type(REPLY_ARRAY), strVal(strVal) {}
+    RedisReply(std::string strVal) : type(REPLY_STRING), strVal(strVal) {}
 };
 
 // RedisInputStream 简化版，使用 std::istream 包装

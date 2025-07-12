@@ -1,7 +1,6 @@
 #ifndef REDIS_HH
 #define REDIS_HH
 
-#include <cstddef>
 #include <string>
 #include <stdexcept>
 #include <netdb.h>
@@ -13,31 +12,39 @@
 #include <cctype>
 #include <algorithm>
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <chrono>
 #include "Protocol.hpp"
+#include "RDBParser.hpp"
+#include "util.hpp"
+
 
 class Redis {
 private:
     int sockfd;
     std::string host;
     int port;
-    std::stringstream buffer;  // 用于包装为 RedisInputStream
+    std::stringstream buffer;
     int connection_backlog = 5;
-    std::map<std::string, std::string> kv;
-    std::map<std::string, int64_t> key_elapsed_time;
+    int cur_db;
+    std::vector<std::unordered_map<std::string, std::string>> kvs;
+    std::vector<std::unordered_map<std::string, int64_t>> key_elapsed_time_dbs;
+    std::unordered_map<std::string, std::string> metadata;
 
 public:
-    Redis(std::string dir, std::string dbfilename, const std::string& host = Protocol::DEFAULT_HOST, int port = Protocol::DEFAULT_PORT, int connection_backlog = 5)
-        : sockfd(-1), host(host), port(port), connection_backlog(connection_backlog) {
-        // std::cout << "Redis" << std::endl;
-        // std::cout << dir << std::endl;
-        // std::cout << dbfilename << std::endl;
-
-        kv.insert_or_assign("dir", std::move(dir));
-        kv.insert_or_assign("dbfilename", std::move(dbfilename));
-        // std::cout << kv["dir"] << std::endl;
-        // std::cout << kv["dbfilename"] << std::endl;
+    Redis(std::string dir, std::string dbfilename, int cur_db = 0, const std::string& host = Protocol::DEFAULT_HOST, int port = Protocol::DEFAULT_PORT, int connection_backlog = 5)
+        : sockfd(-1), host(host), port(port), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16){
+        if(!dir.empty() && !dbfilename.empty()) {
+            RDBParser rdb_parser(dir, dbfilename);
+            rdb_parser.parseMetadata(metadata);
+            rdb_parser.parseDatabase(kvs, key_elapsed_time_dbs);
+        }
+        for(auto &kv : kvs) {
+            if(!kv.empty()) {
+                kv.insert_or_assign("dir", dir);
+                kv.insert_or_assign("dbfilename", dbfilename);
+            }
+        }
         bind_listen();
     }
 
@@ -108,11 +115,11 @@ public:
             if(items.size() == 5) {
                 std::transform(items[3].strVal.begin(), items[3].strVal.end(), command.begin(), ::tolower);
                 if(items[3].strVal == "px") {
-                    key_elapsed_time.insert_or_assign(key, get_millis() + std::stoi(items[4].strVal));
+                    key_elapsed_time_dbs[cur_db].insert_or_assign(key, get_millis() + std::stoi(items[4].strVal));
                 }
             }
             // store[key] = value;
-            kv.insert_or_assign(key, value);
+            kvs[cur_db].insert_or_assign(key, value);
             RedisReply ok;
             ok.type = REPLY_STRING;
             ok.strVal = "OK";
@@ -120,16 +127,16 @@ public:
         } else if (command == "get") {
             if (items.size() < 2) return;
             std::string key = items[1].strVal;
-            if(key_elapsed_time.count(key)) {
-                if(key_elapsed_time[key] <= get_millis()) {
-                    key_elapsed_time.erase(key);
-                    kv.erase(key);
+            if(key_elapsed_time_dbs[cur_db].count(key)) {
+                if(key_elapsed_time_dbs[cur_db][key] <= get_millis()) {
+                    key_elapsed_time_dbs[cur_db].erase(key);
+                    kvs[cur_db].erase(key);
                 }
             }
             RedisReply result;
-            if (kv.count(key)) {
+            if (kvs[cur_db].count(key)) {
                 result.type = REPLY_BULK;
-                result.strVal = kv[key];
+                result.strVal = kvs[cur_db][key];
             } else {
                 result.type = REPLY_NIL;
             }
@@ -140,10 +147,20 @@ public:
             if(command == "get") {
                 auto response = makeArray({
                     makeBulk("dir"),
-                    makeBulk(kv["dir"])
+                    makeBulk(kvs[cur_db]["dir"])
                 });
                 sendCommand({response}, client_fd);
             }
+        } else if(command == "keys") {
+            std::string pattern = items[1].strVal;
+            RedisReply reply;
+            reply.type = RedisReplyType::REPLY_ARRAY;
+            for (const auto& [key, _] : kvs[cur_db]) {
+                if(matchPattern(pattern, key)) {
+                    reply.elements.emplace_back(std::move(makeBulk(key)));
+                }
+            }
+            sendCommand({reply}, client_fd);
         }
     }
 
