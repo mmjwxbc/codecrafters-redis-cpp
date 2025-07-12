@@ -70,7 +70,8 @@ int main(int argc, char **argv) {
   //   return 1;
   // }
   port = (port == -1) ? Protocol::DEFAULT_PORT : port;
-  Redis redis(dir, dbfiliname, 0, port);
+  bool is_master = replicaof.empty();
+  Redis redis(dir, dbfiliname, 0, port, is_master, replicaof);
   const int server_fd = redis.server_fd();
   fd_set fdset;
   FD_ZERO(&fdset);
@@ -82,7 +83,6 @@ int main(int argc, char **argv) {
     int ret = select(max_fd + 1, &tmp, NULL, NULL, NULL);
     if(FD_ISSET(server_fd, &tmp)) {
       int cfd = accept(server_fd, NULL, NULL);
-      cout << "Connect " << cfd << endl;
       FD_SET(cfd, &fdset);
       max_fd = cfd > max_fd ? cfd : max_fd;
     }
