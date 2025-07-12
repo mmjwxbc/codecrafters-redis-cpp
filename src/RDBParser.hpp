@@ -16,6 +16,9 @@ class RDBParser {
         RDBParser(std::string dir, std::string dbfilename) : dir(dir), dbfilename(dbfilename) {
             fs::path filepath = fs::path(dir) / dbfilename;
             file = std::ifstream(filepath, std::ios::binary);
+            if (!file.is_open()) {
+                throw std::runtime_error("Failed to open RDB file: " + filepath.string());
+            }
         }
         uint8_t readByte() {
             char byte;
@@ -93,7 +96,7 @@ class RDBParser {
             throw std::runtime_error("Unsupported string encoding");
         }
     
-        uint64_t readLength(std::ifstream &file) {
+        uint64_t readLength() {
             uint8_t first = readByte();
 
             // Case 1: 00xxxxxx
@@ -147,8 +150,8 @@ class RDBParser {
                     std::cout << "cur db = " << cur_db << std::endl;
                     if(readByte() != 0xFB) {
                         throw std::runtime_error("parseDatabse hash table size failed");
-                        uint64_t kv_size = readLength(file);
-                        uint64_t elapsed_time_kv_size = readLength(file);
+                        uint64_t kv_size = readLength();
+                        uint64_t elapsed_time_kv_size = readLength();
                         while(true) {
                             uint8_t type = readByte();
                             if(type == 0xFE || type == 0xFF) {
