@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
@@ -129,6 +130,7 @@ class RDBParser {
         void parseMetadata(std::unordered_map<std::string, std::string> &metadata) {
             while (true) {
                 uint8_t type = readByte();
+                std::cout << "type: " << type << std::endl;
                 if (type != 0xFA) {
                     file.unget();
                     break;
