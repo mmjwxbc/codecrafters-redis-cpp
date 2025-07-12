@@ -33,7 +33,7 @@ class RDBParser {
             if(type == 0x00) {
                 std::string key = readString();
                 std::string value = readString();
-                std::cout << "key: " << key << " value: " << value << std::endl;
+                // std::cout << "key: " << key << " value: " << value << std::endl;
                 kv[cur_db].insert_or_assign(key, value);
                 elapsed_time_kv[cur_db].insert_or_assign(key, mills);
             }
@@ -103,18 +103,22 @@ class RDBParser {
 
             // Case 1: 00xxxxxx
             if ((first & 0xC0) == 0x00) {
+                // std::cout << "Case 1" << std::endl;
+                // std::cout << "size = " <<  (first & 0x3F) << std::endl;
                 return first & 0x3F;
             }
 
             // Case 2: 01xxxxxx
             else if ((first & 0xC0) == 0x40) {
                 uint8_t second = readByte();
+                // std::cout << "Case 2" << std::endl;
                 return ((first & 0x3F) << 8) | second;
             }
 
             // Case 3: 10xxxxxx
             else if ((first & 0xC0) == 0x80) {
                 uint8_t b[4];
+                // std::cout << "Case 3" << std::endl;
                 file.read(reinterpret_cast<char*>(b), 4);
                 return (static_cast<uint64_t>(b[0]) << 24) |
                     (static_cast<uint64_t>(b[1]) << 16) |
@@ -141,7 +145,7 @@ class RDBParser {
 
                 std::string key = readString();
                 std::string value = readString();
-                std::cout << "key: " << key << " value: " << value << std::endl;
+                // std::cout << "key: " << key << " value: " << value << std::endl;
 
                 metadata.insert_or_assign(key, value);
             }
@@ -152,9 +156,10 @@ class RDBParser {
                 uint8_t type = readByte();
                 if(type == 0xFE) {
                     uint8_t cur_db = readLength();
-                    std::cout << "cur db = " << cur_db << std::endl;
+                    // std::cout << "cur db = " << static_cast<int>(cur_db) << std::endl;
                     if(readByte() != 0xFB) {
                         throw std::runtime_error("parseDatabse hash table size failed");
+                    } else {
                         uint64_t kv_size = readLength();
                         uint64_t elapsed_time_kv_size = readLength();
                         while(true) {
@@ -166,7 +171,7 @@ class RDBParser {
                             if(type == 0x00) {
                                 std::string key = readString();
                                 std::string value = readString();
-                                std::cout << "key: " << key << " value: " << value << std::endl;
+                                // std::cout << "key: " << key << " value: " << value << std::endl;
                                 kv[cur_db].insert_or_assign(key, value);
                             } else if(type == 0xFC) {
                                 uint64_t mills = readMills();
