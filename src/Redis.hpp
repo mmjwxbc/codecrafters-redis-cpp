@@ -1,6 +1,7 @@
 #ifndef REDIS_HH
 #define REDIS_HH
 
+#include <netinet/in.h>
 #include <string>
 #include <stdexcept>
 #include <netdb.h>
@@ -18,6 +19,7 @@
 #include "RDBParser.hpp"
 #include "util.hpp"
 #include <filesystem>
+#include <cstring>
 namespace fs = std::filesystem;
 
 class Redis {
@@ -32,8 +34,8 @@ private:
     std::vector<std::unordered_map<std::string, int64_t>> key_elapsed_time_dbs;
     std::unordered_map<std::string, std::string> metadata;
     bool is_master{true};
-    std::string remote_host;
-    int remote_port;
+    std::string master_host;
+    int master_port;
 
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
@@ -49,8 +51,25 @@ public:
         }
         if(!replicaof.empty()) {
             int space_pos = replicaof.find(' ', 0);
-            remote_host = replicaof.substr(0, space_pos);
-            remote_port = std::stoi(replicaof.substr(space_pos + 1));
+            master_host = replicaof.substr(0, space_pos);
+            master_port = std::stoi(replicaof.substr(space_pos + 1));
+            int master_fd = socket(AF_INET, SOCK_STREAM, 0);
+            if(master_fd < 0) {
+                throw std::runtime_error("socket creation failed");
+            }
+            struct sockaddr_in master_addr;
+            std::memset(&master_addr, 0, sizeof(master_addr));
+            master_addr.sin_family = AF_INET;
+            master_addr.sin_port = htons(master_port);
+            if(inet_pton(AF_INET, master_host.c_str(), &master_addr) <= 0) {
+                close(master_fd);
+                throw std::runtime_error("inet_pton failed");
+            }
+            if(connect(master_fd, (struct sockaddr*)&master_addr, sizeof(master_addr)) < 0) {
+                close(master_fd);
+                throw std::runtime_error("connect failed");
+            }
+            sendCommand({makeArray({makeBulk("PING")})}, master_fd);
         }
         metadata.insert_or_assign("dir", dir);
         metadata.insert_or_assign("dbfilename", dbfilename);
