@@ -40,12 +40,8 @@ public:
             rdb_parser.parseMetadata(metadata);
             rdb_parser.parseDatabase(kvs, key_elapsed_time_dbs);
         }
-        for(auto &kv : kvs) {
-            if(!kv.empty()) {
-                kv.insert_or_assign("dir", dir);
-                kv.insert_or_assign("dbfilename", dbfilename);
-            }
-        }
+        metadata.insert_or_assign("dir", dir);
+        metadata.insert_or_assign("dbfilename", dbfilename);
         bind_listen();
     }
 
@@ -148,7 +144,7 @@ public:
             if(command == "get") {
                 auto response = makeArray({
                     makeBulk("dir"),
-                    makeBulk(kvs[cur_db]["dir"])
+                    makeBulk(metadata["dir"])
                 });
                 sendCommand({response}, client_fd);
             }
