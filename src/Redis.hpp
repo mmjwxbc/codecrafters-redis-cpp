@@ -49,26 +49,35 @@ public:
                 rdb_parser.parseDatabase(kvs, key_elapsed_time_dbs);
             }
         }
-        if(!replicaof.empty()) {
-            int space_pos = replicaof.find(' ', 0);
+        if (!replicaof.empty()) {
+            int space_pos = replicaof.find(' ');
             master_host = replicaof.substr(0, space_pos);
             master_port = std::stoi(replicaof.substr(space_pos + 1));
+
             int master_fd = socket(AF_INET, SOCK_STREAM, 0);
-            if(master_fd < 0) {
+            if (master_fd < 0) {
                 throw std::runtime_error("socket creation failed");
             }
-            struct sockaddr_in master_addr;
-            std::memset(&master_addr, 0, sizeof(master_addr));
-            master_addr.sin_family = AF_INET;
-            master_addr.sin_port = htons(master_port);
-            if(inet_pton(AF_INET, master_host.c_str(), &master_addr) <= 0) {
+
+            struct addrinfo hints{}, *res;
+            hints.ai_family = AF_INET;        // IPv4
+            hints.ai_socktype = SOCK_STREAM;  // TCP stream socket
+
+            int err = getaddrinfo(master_host.c_str(), std::to_string(master_port).c_str(), &hints, &res);
+            if (err != 0) {
                 close(master_fd);
-                throw std::runtime_error("inet_pton failed");
+                throw std::runtime_error("getaddrinfo failed: " + std::string(gai_strerror(err)));
             }
-            if(connect(master_fd, (struct sockaddr*)&master_addr, sizeof(master_addr)) < 0) {
+
+            if (connect(master_fd, res->ai_addr, res->ai_addrlen) < 0) {
+                freeaddrinfo(res);
                 close(master_fd);
-                throw std::runtime_error("connect failed");
+                throw std::runtime_error("connect failed to master");
             }
+
+            freeaddrinfo(res); // Clean up addrinfo
+
+            // Send PING to master after connection
             sendCommand({makeArray({makeBulk("PING")})}, master_fd);
         }
         metadata.insert_or_assign("dir", dir);
