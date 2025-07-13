@@ -45,10 +45,13 @@ int main(int argc, char **argv) {
   fd_set fdset;
   FD_ZERO(&fdset);
   FD_SET(server_fd, &fdset);
-  if(!is_master) {
-    FD_SET(redis.get_master_fd(), &fdset);
-  }
   int max_fd = server_fd;
+  if(!is_master) {
+    int master_fd = redis.get_master_fd();
+    if(master_fd > max_fd) {
+      FD_SET(master_fd, &fdset);
+    }
+  }
   char buffer[65536];
   while(true) {
     fd_set tmp = fdset;
