@@ -98,6 +98,7 @@ public:
             reply = readReply(master_fd);
             sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
             reply = readReply(master_fd);
+            reply = readReply(master_fd);
             _master_fd = master_fd;
         }
         metadata.insert_or_assign("dir", dir);
