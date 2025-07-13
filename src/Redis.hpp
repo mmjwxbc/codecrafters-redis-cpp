@@ -163,7 +163,10 @@ public:
 
         std::string command = items.front().strVal;
         std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-        std::cout << "is_master = " << is_master << " command " << command << std::endl;
+        for(auto item : items) {
+            std::cout << item.strVal << " " << std::endl;
+        }
+        std::cout << std::endl;
         if (command == "echo") {
             items.erase(items.begin());
             sendCommand(items, client_fd);
