@@ -194,6 +194,7 @@ public:
                 std::cout << "Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                 for(int fd: slave_fds) {
                     sendCommand({reply}, fd);
+                    std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                 }
             }
         } else if (command == "get") {

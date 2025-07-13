@@ -46,14 +46,14 @@ int main(int argc, char **argv) {
   FD_ZERO(&fdset);
   FD_SET(server_fd, &fdset);
   int max_fd = server_fd;
-  // if(!is_master) {
-  //   int master_fd = redis.get_master_fd();
-  //   if(master_fd > max_fd) {
-  //     max_fd = master_fd;
-  //   }
-  //   FD_SET(master_fd, &fdset);
-  //   cout << "slave set master fd : " << master_fd << endl;
-  // }
+  if(!is_master) {
+    int master_fd = redis.get_master_fd();
+    if(master_fd > max_fd) {
+      max_fd = master_fd;
+    }
+    FD_SET(master_fd, &fdset);
+    cout << "slave set master fd : " << master_fd << endl;
+  }
   char buffer[65536];
   while(true) {
     fd_set tmp = fdset;
