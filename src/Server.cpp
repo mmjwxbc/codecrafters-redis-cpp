@@ -52,6 +52,7 @@ int main(int argc, char **argv) {
       max_fd = master_fd;
     }
     FD_SET(master_fd, &fdset);
+    cout << "slave set master fd : " << master_fd << endl;
   }
   char buffer[65536];
   while(true) {
