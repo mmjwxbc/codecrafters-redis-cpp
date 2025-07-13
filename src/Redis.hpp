@@ -262,6 +262,7 @@ public:
                 throw std::runtime_error("send RDB failed");
             }
             slave_fds.emplace_back(client_fd);
+            std::cout << "slave client fd = " << client_fd << std::endl;
         }
     }
 
