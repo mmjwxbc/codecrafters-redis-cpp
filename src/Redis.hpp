@@ -184,7 +184,7 @@ public:
             }
             // store[key] = value;
             kvs[cur_db].insert_or_assign(key, value);
-                std::cout << "is_master = " << is_master << " SET " << key << " " << value << std::endl;
+            std::cout << "is_master = " << is_master << " SET " << key << " " << value << std::endl;
             if(is_master) {
                 RedisReply ok;
                 ok.type = REPLY_STRING;
@@ -192,6 +192,7 @@ public:
                 sendCommand({ok}, client_fd);
                 for(int fd: slave_fds) {
                     sendCommand({reply}, fd);
+                    std::cout << "Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                 }
             }
         } else if (command == "get") {
