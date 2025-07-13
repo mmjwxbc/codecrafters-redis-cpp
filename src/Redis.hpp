@@ -223,17 +223,17 @@ public:
             std::cout << std::endl;
             std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-            std::cout << "*****" << std::endl;
-            for(auto item : items) {
-                std::cout << item.strVal << " " << std::endl;
-            }
-            std::cout << std::endl;
-            std::cout << "*****" << std::endl;
+            // std::cout << "*****" << std::endl;
+            // for(auto item : items) {
+            //     std::cout << item.strVal << " " << std::endl;
+            // }
+            // std::cout << std::endl;
+            // std::cout << "*****" << std::endl;
             if (command == "echo") {
                 items.erase(items.begin());
                 sendCommand(items, client_fd);
 
-            } else if (command == "ping") {
+            } else if (command == "ping" && client_fd != _master_fd) {
                 RedisReply pong;
                 pong.type = REPLY_STRING;
                 pong.strVal = "PONG";
