@@ -265,7 +265,12 @@ public:
                     sendCommand({makeBulk(oss.str())}, client_fd);
                 }
             } else if(command == "replconf") {
-                sendCommand({makeString("OK")}, client_fd);
+                std::string &arg = items[1].strVal;
+                std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
+                if(arg == "getack") {
+                    // *3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n
+                    sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk("0")})}, client_fd);
+                }
             } else if(command == "psync") {
                 sendCommand({makeString("FULLRESYNC " + metadata["master_replid"] + " " + metadata["master_repl_offset"])}, client_fd);
                 const std::string empty_rdb = "\x52\x45\x44\x49\x53\x30\x30\x31\x31\xfa\x09\x72\x65\x64\x69\x73\x2d\x76\x65"
