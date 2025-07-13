@@ -233,6 +233,8 @@ public:
             }
         } else if(command == "replconf") {
             sendCommand({makeString("OK")}, client_fd);
+        } else if(command == "psync") {
+            sendCommand({makeString("FULLRESYNC " + metadata["master_replid"] + " " + metadata["master_repl_offset"])}, client_fd);
         }
     }
 
