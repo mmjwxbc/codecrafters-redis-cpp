@@ -105,6 +105,8 @@ public:
                 }
                 total_read += n;
             }  
+                std::cout << "current read bytes " << total_read << std::endl; 
+
             std::cout << "hand shake successed " << std::endl;
             _master_fd = master_fd;
         }
