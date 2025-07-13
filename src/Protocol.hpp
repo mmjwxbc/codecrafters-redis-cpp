@@ -133,7 +133,7 @@ private:
                 throw std::runtime_error(std::string("Unknown reply type: ") + b);
         }
         auto end = is.input_stream().tellg();
-        reply.len = static_cast<size_t>(end - start) + 1;
+        reply.len = static_cast<size_t>(end - start);
         return reply;
     }
 
