@@ -190,9 +190,9 @@ public:
                 ok.type = REPLY_STRING;
                 ok.strVal = "OK";
                 sendCommand({ok}, client_fd);
+                std::cout << "Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                 for(int fd: slave_fds) {
                     sendCommand({reply}, fd);
-                    std::cout << "Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                 }
             }
         } else if (command == "get") {
