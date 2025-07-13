@@ -98,6 +98,7 @@ public:
             reply = readReply(master_fd);
             sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
             reply = readReply(master_fd);
+            reply = readReply(master_fd);
             recv(master_fd, buf, sizeof(buf), 0);            
             _master_fd = master_fd;
         }
