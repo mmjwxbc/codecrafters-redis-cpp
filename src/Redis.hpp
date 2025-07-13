@@ -217,18 +217,14 @@ public:
     void process_command(std::vector<RedisReply> replys, const int client_fd) {
         for(auto &reply : replys) {
             std::vector<RedisReply> &items = reply.elements;
-            for(auto item : items) {
-                std::cout << item.strVal << " ";
-            }
-            std::cout << std::endl;
             std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-            // std::cout << "*****" << std::endl;
-            // for(auto item : items) {
-            //     std::cout << item.strVal << " " << std::endl;
-            // }
-            // std::cout << std::endl;
-            // std::cout << "*****" << std::endl;
+            std::cout << "*****" << std::endl;
+            for(auto item : items) {
+                std::cout << item.strVal << " " << std::endl;
+            }
+            std::cout << std::endl;
+            std::cout << "*****" << std::endl;
             if (command == "echo") {
                 items.erase(items.begin());
                 sendCommand(items, client_fd);
@@ -340,8 +336,10 @@ public:
                 slave_fds.emplace_back(client_fd);
                 // std::cout << "slave client fd = " << client_fd << std::endl;
             }
-            std::cout << "processed_bytes = " << processed_bytes << std::endl;
-            processed_bytes += reply.len;
+            // std::cout << "processed_bytes = " << processed_bytes << std::endl;
+            if(client_fd == _master_fd) {
+                processed_bytes += reply.len;
+            }
         }
         
     }
