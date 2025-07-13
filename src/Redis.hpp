@@ -10,7 +10,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sstream>
-#include <optional>
 #include <cctype>
 #include <algorithm>
 #include <vector>
@@ -81,17 +80,21 @@ public:
             // Send PING to master after connection
             sendCommand({makeArray({makeBulk("PING")})}, master_fd);
             char buf[65536];
-            std::vector<RedisReply> reply = readAllAvailableReplies(master_fd);
+            RedisReply reply = readOneReply(master_fd);
 
             // REPLCONF listening-port <PORT>
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
             // REPLCONF capa psync2
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
-            reply = readAllAvailableReplies(master_fd);
+            reply = readOneReply(master_fd);
             sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
-            reply = readAllAvailableReplies(master_fd);
-            reply = readAllAvailableReplies(master_fd);
-            recv(master_fd, buf, sizeof(buf), 0);            
+            reply = readOneReply(master_fd);
+            reply = readOneReply(master_fd);
+            int rdb_len = readBulkStringLen(master_fd);
+            std::string rdb_data(rdb_len, '\0');
+            if(::recv(master_fd, &rdb_data[0], rdb_len, 0) != rdb_len) {
+                throw std::runtime_error("recv rdb data failed");
+            }      
             _master_fd = master_fd;
         }
         metadata.insert_or_assign("dir", dir);
@@ -137,6 +140,20 @@ public:
         ::send(client_fd, formatted.c_str(), formatted.size(), 0);
     }
 
+    int readBulkStringLen(const int client_fd) {
+        char buf[1024];
+        for(int i = 0; i < 1024; i++) {
+            if(::recv(client_fd, buf + i, 1, 0) != 1) {
+                throw std::runtime_error("process bulk string len failed");
+            }
+            if(buf[i] == '\n') {
+                buffer.write(buf, i + 1);
+                break;
+            }
+        }
+        RedisInputStream ris(buffer);
+        return Protocol::processBulkStringlen(ris);
+    }
 
     std::vector<RedisReply> readAllAvailableReplies(const int client_fd) {
         char buf[65536];
@@ -155,14 +172,35 @@ public:
                 RedisReply reply = Protocol::read(ris);
                 replies.push_back(std::move(reply));
             } catch (const std::runtime_error& e) {
-                // 如果是数据不足导致的异常，则恢复流位置，等待下次 recv 补充数据
-                buffer.clear();  // 清除 EOF/Fail 状态
+                buffer.clear();
                 buffer.seekg(prevPos);
                 break;
             }
         }
 
         return replies;
+    }
+
+    RedisReply readOneReply(const int client_fd) {
+        while (true) {
+            RedisInputStream ris(buffer);
+            std::streampos prevPos = buffer.tellg();
+
+            try {
+                RedisReply reply = Protocol::read(ris);
+                return reply;
+            } catch (const std::runtime_error& e) {
+                buffer.clear();
+                buffer.seekg(prevPos);
+
+                char buf[65536];
+                ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
+                if (n < 0) throw std::runtime_error("recv error");
+                if (n == 0) throw std::runtime_error("connection closed (EOF)");
+
+                buffer.write(buf, n);  // append new data into buffer
+            }
+        }
     }
 
 

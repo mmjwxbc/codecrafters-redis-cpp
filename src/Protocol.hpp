@@ -1,6 +1,7 @@
 #ifndef PROTOCOL_HH
 #define PROTOCOL_HH
 
+#include <cassert>
 #include <string>
 #include <vector>
 #include <stdint.h>
@@ -69,12 +70,11 @@ public:
     }
 };
 
-// Protocol 类
+// Protocol
 class Protocol {
 private:
-    Protocol(); // 禁止实例化
+    Protocol();
 
-    // 转换工具函数
     static std::vector<unsigned char> toByteArray(int value) {
         std::string val = std::to_string(value);
         return std::vector<unsigned char>(val.begin(), val.end());
@@ -101,9 +101,14 @@ public:
     inline static const std::vector<unsigned char> BYTES_ASTERISK = encode("*");          // "*"
 
 
-    // 主函数：解析 Redis 响应
     static RedisReply read(RedisInputStream& is) {
         return process(is);
+    }
+
+    static int processBulkStringlen(RedisInputStream& is) {
+        char type = is.readByte();
+        assert(type == '$');
+        return is.readIntCrLf();
     }
 
 private:
