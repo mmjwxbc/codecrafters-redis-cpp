@@ -94,9 +94,17 @@ public:
             int rdb_len = readBulkStringLen(master_fd);
             std::string rdb_data(rdb_len, '\0');
             std::cout << rdb_len << std::endl;
-            if(::recv(master_fd, &rdb_data[0], rdb_len, 0) < 0) {
-                throw std::runtime_error("recv rdb data failed");
-            }      
+            size_t total_read = 0;
+
+            while (total_read < rdb_len) {
+                ssize_t n = ::recv(master_fd, &rdb_data[total_read], rdb_len - total_read, 0);
+                if (n < 0) {
+                    throw std::runtime_error("recv error while reading RDB data");
+                } else if (n == 0) {
+                    throw std::runtime_error("connection closed before RDB fully received");
+                }
+                total_read += n;
+            }  
             _master_fd = master_fd;
         }
         metadata.insert_or_assign("dir", dir);
