@@ -27,7 +27,7 @@ private:
     int sockfd;
     std::string host;
     int port;
-    std::stringstream buffer;
+    std::unordered_map<int, std::stringstream> buffers;
     int connection_backlog = 5;
     int cur_db;
     std::vector<std::unordered_map<std::string, std::string>> kvs;
@@ -160,11 +160,11 @@ public:
                 throw std::runtime_error("process bulk string len failed");
             }
             if(buf[i] == '\n') {
-                buffer.write(buf, i + 1);
+                buffers[client_fd].write(buf, i + 1);
                 break;
             }
         }
-        RedisInputStream ris(buffer);
+        RedisInputStream ris(buffers[client_fd]);
         return Protocol::processBulkStringlen(ris);
     }
 
@@ -174,19 +174,19 @@ public:
         if (n < 0) throw std::runtime_error("Read error or connection closed");
         else if (n == 0) return {};  // EOF
 
-        buffer.write(buf, n);  // 将数据追加进 buffer
+        buffers[client_fd].write(buf, n);  // 将数据追加进 buffer
 
         std::vector<RedisReply> replies;
-        RedisInputStream ris(buffer);
+        RedisInputStream ris(buffers[client_fd]);
 
         while (true) {
-            std::streampos prevPos = buffer.tellg();
+            std::streampos prevPos = buffers[client_fd].tellg();
             try {
                 RedisReply reply = Protocol::read(ris);
                 replies.push_back(std::move(reply));
             } catch (const std::runtime_error& e) {
-                buffer.clear();
-                buffer.seekg(prevPos);
+                buffers[client_fd].clear();
+                buffers[client_fd].seekg(prevPos);
                 return replies;
             }
         }
@@ -195,22 +195,22 @@ public:
 
     RedisReply readOneReply(const int client_fd) {
         while (true) {
-            RedisInputStream ris(buffer);
-            std::streampos prevPos = buffer.tellg();
+            RedisInputStream ris(buffers[client_fd]);
+            std::streampos prevPos = buffers[client_fd].tellg();
 
             try {
                 RedisReply reply = Protocol::read(ris);
                 return reply;
             } catch (const std::runtime_error& e) {
-                buffer.clear();
-                buffer.seekg(prevPos);
+                buffers[client_fd].clear();
+                buffers[client_fd].seekg(prevPos);
 
                 char buf[65536];
                 ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
                 if (n < 0) throw std::runtime_error("recv error");
                 if (n == 0) throw std::runtime_error("connection closed (EOF)");
 
-                buffer.write(buf, n);  // append new data into buffer
+                buffers[client_fd].write(buf, n);  // append new data into buffer
             }
         }
     }
