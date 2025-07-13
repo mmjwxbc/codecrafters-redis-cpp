@@ -81,24 +81,16 @@ public:
             // Send PING to master after connection
             sendCommand({makeArray({makeBulk("PING")})}, master_fd);
             char buf[65536];
-            std::optional<RedisReply> reply = readReply(master_fd);
-            if(reply.has_value()) {
-                std::vector<RedisReply> &items = reply.value().elements;
-                for(auto &item : items) {
-                    if(item.strVal == "PONG") {
-                        break;
-                    }
-                }
-            }
+            std::vector<RedisReply> reply = readAllAvailableReplies(master_fd);
 
             // REPLCONF listening-port <PORT>
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
             // REPLCONF capa psync2
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
-            reply = readReply(master_fd);
+            reply = readAllAvailableReplies(master_fd);
             sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
-            reply = readReply(master_fd);
-            reply = readReply(master_fd);
+            reply = readAllAvailableReplies(master_fd);
+            reply = readAllAvailableReplies(master_fd);
             recv(master_fd, buf, sizeof(buf), 0);            
             _master_fd = master_fd;
         }
@@ -148,131 +140,150 @@ public:
     }
 
 
-    std::optional<RedisReply> readReply(const int client_fd) {
+    std::vector<RedisReply> readAllAvailableReplies(const int client_fd) {
         char buf[65536];
         ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
         if (n < 0) throw std::runtime_error("Read error or connection closed");
-        else if (n == 0) {
-            return std::nullopt;
-        }
-        buffer.write(buf, n);
+        else if (n == 0) return {};  // EOF
+
+        buffer.write(buf, n);  // 将数据追加进 buffer
+
+        std::vector<RedisReply> replies;
         RedisInputStream ris(buffer);
-        return Protocol::read(ris);
+
+        while (true) {
+            std::streampos prevPos = buffer.tellg();
+            try {
+                RedisReply reply = Protocol::read(ris);
+                replies.push_back(std::move(reply));
+            } catch (const std::runtime_error& e) {
+                // 如果是数据不足导致的异常，则恢复流位置，等待下次 recv 补充数据
+                buffer.clear();  // 清除 EOF/Fail 状态
+                buffer.seekg(prevPos);
+                break;
+            }
+        }
+
+        return replies;
     }
 
-    void process_command(RedisReply reply, const int client_fd) {
-        std::vector<RedisReply> &items = reply.elements;
 
-        std::string command = items.front().strVal;
-        std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-        for(auto item : items) {
-            std::cout << item.strVal << " " << std::endl;
-        }
-        std::cout << std::endl;
-        if (command == "echo") {
-            items.erase(items.begin());
-            sendCommand(items, client_fd);
+    void process_command(std::vector<RedisReply> replys, const int client_fd) {
+        for(auto &reply : replys) {
+            std::vector<RedisReply> &items = reply.elements;
 
-        } else if (command == "ping") {
-            RedisReply pong;
-            pong.type = REPLY_STRING;
-            pong.strVal = "PONG";
-            sendCommand({pong}, client_fd);
-
-        } else if (command == "set") {
-            if (items.size() < 3) return;
-            std::string key = items[1].strVal;
-            std::string value = items[2].strVal;
-            if(items.size() == 5) {
-                std::transform(items[3].strVal.begin(), items[3].strVal.end(), command.begin(), ::tolower);
-                if(items[3].strVal == "px") {
-                    key_elapsed_time_dbs[cur_db].insert_or_assign(key, get_millis() + std::stoi(items[4].strVal));
-                }
-            }
-            // store[key] = value;
-            kvs[cur_db].insert_or_assign(key, value);
-            // std::cout << "is_master = " << is_master << " SET " << key << " " << value << std::endl;
-            if(is_master) {
-                RedisReply ok;
-                ok.type = REPLY_STRING;
-                ok.strVal = "OK";
-                sendCommand({ok}, client_fd);
-                for(int fd: slave_fds) {
-                    RedisReply slave_sync_content;
-                    slave_sync_content.elements = reply.elements;
-                    slave_sync_content.type = REPLY_ARRAY;
-                    sendCommand({reply}, fd);
-                    // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
-                }
-            }
-        } else if (command == "get") {
-            if (items.size() < 2) return;
-            std::string key = items[1].strVal;
-            std::cout << "is_master = " << is_master << " GET " << key << std::endl; 
-            if(key_elapsed_time_dbs[cur_db].count(key)) {
-                if(key_elapsed_time_dbs[cur_db][key] <= get_millis()) {
-                    key_elapsed_time_dbs[cur_db].erase(key);
-                    kvs[cur_db].erase(key);
-                }
-            }
-            RedisReply result;
-            if (kvs[cur_db].count(key)) {
-                result.type = REPLY_BULK;
-                result.strVal = kvs[cur_db][key];
-            } else {
-                result.type = REPLY_NIL;
-            }
-            sendCommand({result}, client_fd);
-        } else if(command == "config") {
-            command = items[1].strVal;
+            std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-            if(command == "get") {
-                auto response = makeArray({
-                    makeBulk("dir"),
-                    makeBulk(metadata["dir"])
-                });
-                sendCommand({response}, client_fd);
+            for(auto item : items) {
+                std::cout << item.strVal << " " << std::endl;
             }
-        } else if(command == "keys") {
-            std::string pattern = items[1].strVal;
-            RedisReply reply;
-            reply.type = RedisReplyType::REPLY_ARRAY;
-            for (const auto& [key, _] : kvs[cur_db]) {
-                if(matchPattern(pattern, key)) {
-                    reply.elements.emplace_back(std::move(makeBulk(key)));
+            std::cout << std::endl;
+            if (command == "echo") {
+                items.erase(items.begin());
+                sendCommand(items, client_fd);
+
+            } else if (command == "ping") {
+                RedisReply pong;
+                pong.type = REPLY_STRING;
+                pong.strVal = "PONG";
+                sendCommand({pong}, client_fd);
+
+            } else if (command == "set") {
+                if (items.size() < 3) return;
+                std::string key = items[1].strVal;
+                std::string value = items[2].strVal;
+                if(items.size() == 5) {
+                    std::transform(items[3].strVal.begin(), items[3].strVal.end(), command.begin(), ::tolower);
+                    if(items[3].strVal == "px") {
+                        key_elapsed_time_dbs[cur_db].insert_or_assign(key, get_millis() + std::stoi(items[4].strVal));
+                    }
                 }
-            }
-            sendCommand({reply}, client_fd);
-        } else if(command == "info") {
-            std::string &arg = items[1].strVal;
-            std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
-            if (arg == "replication") {
-                std::ostringstream oss;
-                if (is_master) {
-                    oss << "role:master\n";
-                    oss << "master_replid:" << metadata["master_replid"] << "\n";
-                    oss << "master_repl_offset:" << metadata["master_repl_offset"] << "\n";
+                // store[key] = value;
+                kvs[cur_db].insert_or_assign(key, value);
+                // std::cout << "is_master = " << is_master << " SET " << key << " " << value << std::endl;
+                if(is_master) {
+                    RedisReply ok;
+                    ok.type = REPLY_STRING;
+                    ok.strVal = "OK";
+                    sendCommand({ok}, client_fd);
+                    for(int fd: slave_fds) {
+                        RedisReply slave_sync_content;
+                        slave_sync_content.elements = reply.elements;
+                        slave_sync_content.type = REPLY_ARRAY;
+                        sendCommand({reply}, fd);
+                        // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
+                    }
+                }
+            } else if (command == "get") {
+                if (items.size() < 2) return;
+                std::string key = items[1].strVal;
+                std::cout << "is_master = " << is_master << " GET " << key << std::endl; 
+                if(key_elapsed_time_dbs[cur_db].count(key)) {
+                    if(key_elapsed_time_dbs[cur_db][key] <= get_millis()) {
+                        key_elapsed_time_dbs[cur_db].erase(key);
+                        kvs[cur_db].erase(key);
+                    }
+                }
+                RedisReply result;
+                if (kvs[cur_db].count(key)) {
+                    result.type = REPLY_BULK;
+                    result.strVal = kvs[cur_db][key];
                 } else {
-                    oss << "role:slave\n";
+                    result.type = REPLY_NIL;
                 }
-                sendCommand({makeBulk(oss.str())}, client_fd);
-            }
-        } else if(command == "replconf") {
-            sendCommand({makeString("OK")}, client_fd);
-        } else if(command == "psync") {
-            sendCommand({makeString("FULLRESYNC " + metadata["master_replid"] + " " + metadata["master_repl_offset"])}, client_fd);
-            const std::string empty_rdb = "\x52\x45\x44\x49\x53\x30\x30\x31\x31\xfa\x09\x72\x65\x64\x69\x73\x2d\x76\x65"
-            "\x72\x05\x37\x2e\x32\x2e\x30\xfa\x0a\x72\x65\x64\x69\x73\x2d\x62\x69\x74\x73"
-            "\xc0\x40\xfa\x05\x63\x74\x69\x6d\x65\xc2\x6d\x08\xbc\x65\xfa\x08\x75\x73\x65"
-            "\x64\x2d\x6d\x65\x6d\xc2\xb0\xc4\x10\x00\xfa\x08\x61\x6f\x66\x2d\x62\x61\x73"
-            "\x65\xc0\x00\xff\xf0\x6e\x3b\xfe\xc0\xff\x5a\xa2";
-            std::string content = "$" + std::to_string(empty_rdb.size()) + "\r\n" + empty_rdb;
-            if(send(client_fd, content.c_str(), content.size(), 0) != content.size()) {
-                throw std::runtime_error("send RDB failed");
-            }
-            slave_fds.emplace_back(client_fd);
-            // std::cout << "slave client fd = " << client_fd << std::endl;
+                sendCommand({result}, client_fd);
+            } else if(command == "config") {
+                command = items[1].strVal;
+                std::transform(command.begin(), command.end(), command.begin(), ::tolower);
+                if(command == "get") {
+                    auto response = makeArray({
+                        makeBulk("dir"),
+                        makeBulk(metadata["dir"])
+                    });
+                    sendCommand({response}, client_fd);
+                }
+            } else if(command == "keys") {
+                std::string pattern = items[1].strVal;
+                RedisReply reply;
+                reply.type = RedisReplyType::REPLY_ARRAY;
+                for (const auto& [key, _] : kvs[cur_db]) {
+                    if(matchPattern(pattern, key)) {
+                        reply.elements.emplace_back(std::move(makeBulk(key)));
+                    }
+                }
+                sendCommand({reply}, client_fd);
+            } else if(command == "info") {
+                std::string &arg = items[1].strVal;
+                std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
+                if (arg == "replication") {
+                    std::ostringstream oss;
+                    if (is_master) {
+                        oss << "role:master\n";
+                        oss << "master_replid:" << metadata["master_replid"] << "\n";
+                        oss << "master_repl_offset:" << metadata["master_repl_offset"] << "\n";
+                    } else {
+                        oss << "role:slave\n";
+                    }
+                    sendCommand({makeBulk(oss.str())}, client_fd);
+                }
+            } else if(command == "replconf") {
+                sendCommand({makeString("OK")}, client_fd);
+            } else if(command == "psync") {
+                sendCommand({makeString("FULLRESYNC " + metadata["master_replid"] + " " + metadata["master_repl_offset"])}, client_fd);
+                const std::string empty_rdb = "\x52\x45\x44\x49\x53\x30\x30\x31\x31\xfa\x09\x72\x65\x64\x69\x73\x2d\x76\x65"
+                "\x72\x05\x37\x2e\x32\x2e\x30\xfa\x0a\x72\x65\x64\x69\x73\x2d\x62\x69\x74\x73"
+                "\xc0\x40\xfa\x05\x63\x74\x69\x6d\x65\xc2\x6d\x08\xbc\x65\xfa\x08\x75\x73\x65"
+                "\x64\x2d\x6d\x65\x6d\xc2\xb0\xc4\x10\x00\xfa\x08\x61\x6f\x66\x2d\x62\x61\x73"
+                "\x65\xc0\x00\xff\xf0\x6e\x3b\xfe\xc0\xff\x5a\xa2";
+                std::string content = "$" + std::to_string(empty_rdb.size()) + "\r\n" + empty_rdb;
+                if(send(client_fd, content.c_str(), content.size(), 0) != content.size()) {
+                    throw std::runtime_error("send RDB failed");
+                }
+                slave_fds.emplace_back(client_fd);
+                // std::cout << "slave client fd = " << client_fd << std::endl;
         }
+        }
+        
     }
 
 private:

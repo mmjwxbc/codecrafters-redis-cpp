@@ -13,6 +13,7 @@
 #include "Protocol.hpp"
 #include "Redis.hpp"
 #include <optional>
+#include <vector>
 
 using namespace std;
 
@@ -65,13 +66,13 @@ int main(int argc, char **argv) {
     for(int i = 0; i < max_fd + 1; i++) {
       memset(buffer, 0, sizeof(buffer));
       if(i != server_fd && FD_ISSET(i, &tmp)) {
-        optional<RedisReply> reply = redis.readReply(i);
-        if(not reply.has_value()) {
+        vector<RedisReply> reply = redis.readAllAvailableReplies(i);
+        if(reply.empty()) {
           FD_CLR(i, &fdset);
           close(i);
           continue;
         } else {
-          redis.process_command(reply.value(), i);
+          redis.process_command(reply, i);
         }
       }
     }
