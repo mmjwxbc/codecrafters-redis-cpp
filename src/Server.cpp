@@ -12,7 +12,6 @@
 #include <sys/select.h>
 #include "Protocol.hpp"
 #include "Redis.hpp"
-#include <optional>
 #include <vector>
 
 using namespace std;

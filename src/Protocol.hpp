@@ -2,6 +2,7 @@
 #define PROTOCOL_HH
 
 #include <cassert>
+#include <istream>
 #include <string>
 #include <vector>
 #include <stdint.h>
@@ -24,6 +25,7 @@ struct RedisReply {
     std::string strVal;
     int64_t intVal;
     std::vector<RedisReply> elements;
+    size_t len;
 
     RedisReply() : type(REPLY_NIL), intVal(0) {}
     RedisReply(std::string strVal) : type(REPLY_STRING), strVal(strVal) {}
@@ -35,6 +37,10 @@ private:
     std::istream& input;
 public:
     RedisInputStream(std::istream& in) : input(in) {}
+
+    std::istream& input_stream() const{
+        return input;
+    }
 
     char readByte() {
         char c;
@@ -113,16 +119,22 @@ public:
 
 private:
     static RedisReply process(RedisInputStream& is) {
+        RedisReply reply;
+        auto start = is.input_stream().tellg();
+        
         char b = is.readByte();
         switch (b) {
-            case '+': return processSimpleString(is);
-            case '-': return processError(is);
-            case ':': return processInteger(is);
-            case '$': return processBulkString(is);
-            case '*': return processArray(is);
+            case '+': reply = processSimpleString(is); break;
+            case '-': reply = processError(is); break;
+            case ':': reply = processInteger(is); break;
+            case '$': reply = processBulkString(is); break;
+            case '*': reply = processArray(is); break;
             default:
                 throw std::runtime_error(std::string("Unknown reply type: ") + b);
         }
+        auto end = is.input_stream().tellg();
+        reply.len = static_cast<size_t>(end - start) + 1;
+        return reply;
     }
 
     static RedisReply processSimpleString(RedisInputStream& is) {
@@ -159,8 +171,8 @@ private:
     }
 
     static RedisReply processArray(RedisInputStream& is) {
-        int count = is.readIntCrLf();
         RedisReply reply;
+        int count = is.readIntCrLf();
         if (count == -1) {
             reply.type = REPLY_NIL;
             return reply;

@@ -38,6 +38,7 @@ private:
     int master_port;
     std::vector<int> slave_fds;
     int _master_fd{-1};
+    size_t processed_bytes{0};
 
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
@@ -214,10 +215,10 @@ public:
             std::cout << std::endl;
             std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-            for(auto item : items) {
-                std::cout << item.strVal << " " << std::endl;
-            }
-            std::cout << std::endl;
+            // for(auto item : items) {
+            //     std::cout << item.strVal << " " << std::endl;
+            // }
+            // std::cout << std::endl;
             if (command == "echo") {
                 items.erase(items.begin());
                 sendCommand(items, client_fd);
@@ -313,7 +314,7 @@ public:
 
                 if(arg == "getack") {
                     // *3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n
-                    sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk("0")})}, client_fd);
+                    sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk(std::to_string(processed_bytes))})}, client_fd);
                 } else {
                     sendCommand({makeString("OK")}, client_fd);
                 }
@@ -330,7 +331,8 @@ public:
                 }
                 slave_fds.emplace_back(client_fd);
                 // std::cout << "slave client fd = " << client_fd << std::endl;
-        }
+            }
+            processed_bytes += reply.len;
         }
         
     }
