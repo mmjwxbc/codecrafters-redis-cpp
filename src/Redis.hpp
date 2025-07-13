@@ -191,8 +191,10 @@ public:
                 ok.type = REPLY_STRING;
                 ok.strVal = "OK";
                 sendCommand({ok}, client_fd);
-                std::cout << "Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                 for(int fd: slave_fds) {
+                    RedisReply slave_sync_content;
+                    slave_sync_content.elements = reply.elements;
+                    slave_sync_content.type = REPLY_ARRAY;
                     sendCommand({reply}, fd);
                     std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                 }
