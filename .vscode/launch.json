@@ -7,7 +7,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/server",
             // "args": ["--port", "7378", "--replicaof", "localhost 6380"],
-            "args": ["--port", "7378"],
+            "args": ["--port", "7379"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

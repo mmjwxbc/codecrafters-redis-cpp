@@ -169,7 +169,10 @@ public:
     void process_command(std::vector<RedisReply> replys, const int client_fd) {
         for(auto &reply : replys) {
             std::vector<RedisReply> &items = reply.elements;
-
+            // for(auto item : items) {
+            //     std::cout << item.strVal << " ";
+            // }
+            // std::cout << std::endl;
             std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
             for(auto item : items) {
