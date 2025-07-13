@@ -108,6 +108,7 @@ public:
 
     ~Redis() {
         if (sockfd != -1) close(sockfd);
+        if(_master_fd != -1) close(_master_fd);
     }
     int server_fd() const {
         return sockfd;
