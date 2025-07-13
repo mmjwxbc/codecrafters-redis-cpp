@@ -49,8 +49,9 @@ int main(int argc, char **argv) {
   if(!is_master) {
     int master_fd = redis.get_master_fd();
     if(master_fd > max_fd) {
-      FD_SET(master_fd, &fdset);
+      max_fd = master_fd;
     }
+    FD_SET(master_fd, &fdset);
   }
   char buffer[65536];
   while(true) {
