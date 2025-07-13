@@ -36,11 +36,11 @@ private:
     bool is_master{true};
     std::string master_host;
     int master_port;
+    std::vector<int> slave_fds;
 
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
         : sockfd(-1), host(host), port(port), is_master(is_master), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16){
-            std::cout << port << std::endl;
         if(!dir.empty() && !dbfilename.empty()) {
             fs::path filepath = fs::path(dir) / dbfilename;
             if(fs::exists(filepath)) {
@@ -181,6 +181,9 @@ public:
             ok.type = REPLY_STRING;
             ok.strVal = "OK";
             sendCommand({ok}, client_fd);
+            for(int fd: slave_fds) {
+                sendCommand({reply}, fd);
+            }
         } else if (command == "get") {
             if (items.size() < 2) return;
             std::string key = items[1].strVal;
@@ -245,6 +248,7 @@ public:
             if(send(client_fd, content.c_str(), content.size(), 0) != content.size()) {
                 throw std::runtime_error("send RDB failed");
             }
+            slave_fds.emplace_back(client_fd);
         }
     }
 
