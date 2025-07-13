@@ -88,8 +88,8 @@ public:
             // REPLCONF capa psync2
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
             reply = readOneReply(master_fd);
-            sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
             reply = readOneReply(master_fd);
+            sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
             reply = readOneReply(master_fd);
             int rdb_len = readBulkStringLen(master_fd);
             std::string rdb_data(rdb_len, '\0');
@@ -105,6 +105,7 @@ public:
                 }
                 total_read += n;
             }  
+            std::cout << "hand shake successed " << std::endl;
             _master_fd = master_fd;
         }
         metadata.insert_or_assign("dir", dir);
