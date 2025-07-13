@@ -45,6 +45,7 @@ int main(int argc, char **argv) {
   fd_set fdset;
   FD_ZERO(&fdset);
   FD_SET(server_fd, &fdset);
+  FD_SET(redis.get_master_fd(), &fdset);
   int max_fd = server_fd;
   char buffer[65536];
   while(true) {

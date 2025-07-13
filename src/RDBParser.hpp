@@ -1,4 +1,3 @@
-#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
@@ -30,6 +29,7 @@ class RDBParser {
                 file.close();
             }
         }
+
         uint8_t readByte() {
             char byte;
             file.read(&byte, 1);

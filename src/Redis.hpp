@@ -37,6 +37,7 @@ private:
     std::string master_host;
     int master_port;
     std::vector<int> slave_fds;
+    int _master_fd{-1};
 
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
@@ -58,7 +59,7 @@ public:
             if (master_fd < 0) {
                 throw std::runtime_error("socket creation failed");
             }
-
+            _master_fd = master_fd;
             struct addrinfo hints{}, *res;
             hints.ai_family = AF_INET;        // IPv4
             hints.ai_socktype = SOCK_STREAM;  // TCP stream socket
@@ -110,6 +111,10 @@ public:
     }
     int server_fd() const {
         return sockfd;
+    }
+
+    int get_master_fd() {
+        return _master_fd;
     }
     void bind_listen() {
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
