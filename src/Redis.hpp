@@ -340,6 +340,7 @@ public:
                 slave_fds.emplace_back(client_fd);
                 // std::cout << "slave client fd = " << client_fd << std::endl;
             }
+            std::cout << "processed_bytes = " << processed_bytes << std::endl;
             processed_bytes += reply.len;
         }
         
