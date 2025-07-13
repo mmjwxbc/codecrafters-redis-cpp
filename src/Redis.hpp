@@ -93,7 +93,7 @@ public:
             int rdb_len = readBulkStringLen(master_fd);
             std::string rdb_data(rdb_len, '\0');
             std::cout << rdb_len << std::endl;
-            if(::recv(master_fd, &rdb_data[0], rdb_len, 0) != rdb_len) {
+            if(::recv(master_fd, &rdb_data[0], rdb_len, 0) < 0) {
                 throw std::runtime_error("recv rdb data failed");
             }      
             _master_fd = master_fd;
@@ -314,7 +314,7 @@ public:
                 if(arg == "getack") {
                     // *3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n
                     sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk("0")})}, client_fd);
-                } else if(arg == "listening-port") {
+                } else {
                     sendCommand({makeString("OK")}, client_fd);
                 }
             } else if(command == "psync") {
