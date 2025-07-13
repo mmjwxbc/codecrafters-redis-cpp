@@ -231,6 +231,8 @@ public:
                 }
                 sendCommand({makeBulk(oss.str())}, client_fd);
             }
+        } else if(command == "replconf") {
+            sendCommand({makeString("OK")}, client_fd);
         }
     }
 
@@ -284,6 +286,12 @@ private:
         return r;
     }
 
+    RedisReply makeString(const std::string &s) {
+        RedisReply r;
+        r.type = REPLY_STRING;
+        r.strVal = s;
+        return r;
+    }
 };
 
 #endif // REDIS_HH
