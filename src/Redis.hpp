@@ -115,7 +115,7 @@ public:
         return sockfd;
     }
 
-    int get_master_fd() {
+    int master_fd() {
         return _master_fd;
     }
     void bind_listen() {
