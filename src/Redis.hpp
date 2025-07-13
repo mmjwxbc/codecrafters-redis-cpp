@@ -95,7 +95,6 @@ public:
             std::string rdb_data(rdb_len, '\0');
             std::cout << rdb_len << std::endl;
             size_t total_read = 0;
-
             while (total_read < rdb_len) {
                 ssize_t n = ::recv(master_fd, &rdb_data[total_read], rdb_len - total_read, 0);
                 if (n < 0) {
@@ -185,7 +184,7 @@ public:
             } catch (const std::runtime_error& e) {
                 buffer.clear();
                 buffer.seekg(prevPos);
-                break;
+                return replies;
             }
         }
 
@@ -224,7 +223,6 @@ public:
             for(auto item : items) {
                 std::cout << item.strVal << " " << std::endl;
             }
-            std::cout << std::endl;
             std::cout << "*****" << std::endl;
             if (command == "echo") {
                 items.erase(items.begin());
