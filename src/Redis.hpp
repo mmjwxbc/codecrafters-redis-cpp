@@ -97,6 +97,7 @@ public:
             size_t total_read = 0;
             while (total_read < rdb_len) {
                 ssize_t n = ::recv(master_fd, &rdb_data[total_read], rdb_len - total_read, 0);
+                std::cout << "current read bytes " << total_read << std::endl; 
                 if (n < 0) {
                     throw std::runtime_error("recv error while reading RDB data");
                 } else if (n == 0) {
