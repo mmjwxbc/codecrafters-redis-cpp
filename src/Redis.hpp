@@ -271,6 +271,7 @@ public:
                 std::string &arg = items[1].strVal;
                 std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
                 std::cout << "command = " << command << " arg " << arg << std::endl;
+                
                 if(arg == "getack") {
                     // *3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n
                     sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk("0")})}, client_fd);
