@@ -223,10 +223,12 @@ public:
             std::cout << std::endl;
             std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
+            std::cout << "*****" << std::endl;
             for(auto item : items) {
                 std::cout << item.strVal << " " << std::endl;
             }
             std::cout << std::endl;
+            std::cout << "*****" << std::endl;
             if (command == "echo") {
                 items.erase(items.begin());
                 sendCommand(items, client_fd);
@@ -236,7 +238,6 @@ public:
                 pong.type = REPLY_STRING;
                 pong.strVal = "PONG";
                 sendCommand({pong}, client_fd);
-
             } else if (command == "set") {
                 if (items.size() < 3) return;
                 std::string key = items[1].strVal;
@@ -318,7 +319,7 @@ public:
             } else if(command == "replconf") {
                 std::string &arg = items[1].strVal;
                 std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
-                std::cout << "command = " << command << " arg " << arg << std::endl;
+                std::cout << "command = " << command << " arg = " << arg << std::endl;
                 if(arg == "getack") {
                     // *3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n
                     sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk(std::to_string(processed_bytes))})}, client_fd);
