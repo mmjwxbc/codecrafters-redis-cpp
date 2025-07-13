@@ -92,6 +92,7 @@ public:
             reply = readOneReply(master_fd);
             int rdb_len = readBulkStringLen(master_fd);
             std::string rdb_data(rdb_len, '\0');
+            std::cout << rdb_len << std::endl;
             if(::recv(master_fd, &rdb_data[0], rdb_len, 0) != rdb_len) {
                 throw std::runtime_error("recv rdb data failed");
             }      
