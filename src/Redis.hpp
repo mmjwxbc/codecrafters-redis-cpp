@@ -2,6 +2,7 @@
 #define REDIS_HH
 
 #include <netinet/in.h>
+#include <ostream>
 #include <string>
 #include <stdexcept>
 #include <netdb.h>
@@ -183,9 +184,7 @@ public:
             }
             // store[key] = value;
             kvs[cur_db].insert_or_assign(key, value);
-            if(!is_master) {
-                std::cout << "SET " << key << " " << value << std::endl;
-            }
+                std::cout << "is_master = " << is_master << " SET " << key << " " << value << std::endl;
             if(is_master) {
                 RedisReply ok;
                 ok.type = REPLY_STRING;
@@ -198,6 +197,7 @@ public:
         } else if (command == "get") {
             if (items.size() < 2) return;
             std::string key = items[1].strVal;
+            std::cout << "is_master = " << is_master << " GET " << key << std::endl; 
             if(key_elapsed_time_dbs[cur_db].count(key)) {
                 if(key_elapsed_time_dbs[cur_db][key] <= get_millis()) {
                     key_elapsed_time_dbs[cur_db].erase(key);
