@@ -164,10 +164,10 @@ public:
 
         std::string command = items.front().strVal;
         std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-        for(auto item : items) {
-            std::cout << item.strVal << " " << std::endl;
-        }
-        std::cout << std::endl;
+        // for(auto item : items) {
+        //     std::cout << item.strVal << " " << std::endl;
+        // }
+        // std::cout << std::endl;
         if (command == "echo") {
             items.erase(items.begin());
             sendCommand(items, client_fd);
@@ -190,7 +190,7 @@ public:
             }
             // store[key] = value;
             kvs[cur_db].insert_or_assign(key, value);
-            std::cout << "is_master = " << is_master << " SET " << key << " " << value << std::endl;
+            // std::cout << "is_master = " << is_master << " SET " << key << " " << value << std::endl;
             if(is_master) {
                 RedisReply ok;
                 ok.type = REPLY_STRING;
@@ -201,13 +201,13 @@ public:
                     slave_sync_content.elements = reply.elements;
                     slave_sync_content.type = REPLY_ARRAY;
                     sendCommand({reply}, fd);
-                    std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
+                    // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                 }
             }
         } else if (command == "get") {
             if (items.size() < 2) return;
             std::string key = items[1].strVal;
-            std::cout << "is_master = " << is_master << " GET " << key << std::endl; 
+            // std::cout << "is_master = " << is_master << " GET " << key << std::endl; 
             if(key_elapsed_time_dbs[cur_db].count(key)) {
                 if(key_elapsed_time_dbs[cur_db][key] <= get_millis()) {
                     key_elapsed_time_dbs[cur_db].erase(key);
@@ -270,7 +270,7 @@ public:
                 throw std::runtime_error("send RDB failed");
             }
             slave_fds.emplace_back(client_fd);
-            std::cout << "slave client fd = " << client_fd << std::endl;
+            // std::cout << "slave client fd = " << client_fd << std::endl;
         }
     }
 
