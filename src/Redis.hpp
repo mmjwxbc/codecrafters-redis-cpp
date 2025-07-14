@@ -83,16 +83,23 @@ public:
             sendCommand({makeArray({makeBulk("PING")})}, master_fd);
             RedisReply reply = readOneReply(master_fd);
             // std::cout << reply.strVal << std::endl;
-
+            if(reply.strVal != "PONG") {
+                throw std::runtime_error("SLAVE PING FAILED");
+            }
             // REPLCONF listening-port <PORT>
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
             // REPLCONF capa psync2
+            reply = readOneReply(master_fd);
+            if(reply.strVal != "OK") {
+                throw std::runtime_error("LISTENING-PORT FAILED");
+            }
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
-            reply = readOneReply(master_fd);
             // std::cout << reply.strVal << std::endl;
             reply = readOneReply(master_fd);
             // std::cout << reply.strVal << std::endl;
-
+            if(reply.strVal != "OK") {
+                throw std::runtime_error("LISTENING-PORT FAILED");
+            }
             sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
             reply = readOneReply(master_fd);
             // std::cout << reply.strVal << std::endl;
