@@ -280,7 +280,7 @@ public:
                 items.erase(items.begin());
                 sendCommand(items, client_fd);
 
-            } else if (command == "ping") {
+            } else if (command == "ping" && client_fd != _master_fd) {
                 RedisReply pong;
                 pong.type = REPLY_STRING;
                 pong.strVal = "PONG";
