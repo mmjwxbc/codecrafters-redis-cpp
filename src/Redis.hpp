@@ -130,7 +130,6 @@ public:
             }
             std::string rdb_data(rdb_len, '\0');
             master_buffer.read(&rdb_data[0], rdb_len);
-            std::cout << buffers[master_fd].str() << std::endl;
             _master_fd = master_fd;
         }
         metadata.insert_or_assign("dir", dir);
@@ -177,7 +176,7 @@ public:
     }
 
     int readBulkStringLen(const int client_fd) {
-        std::cout << "********************************" << std::endl;
+        std::cout << "********************************readBulkStringLen" << std::endl;
         std::size_t start = static_cast<std::size_t>(buffers[client_fd].tellg());
         std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
         // std::cout << "Debug: last str : " << buffers[client_fd].str() << std::endl;
@@ -195,14 +194,14 @@ public:
         int len =  Protocol::processBulkStringlen(ris);
         // std::cout << "Debug: last str : " << buffers[client_fd].str() << std::endl;
         std::size_t end = static_cast<std::size_t>(buffers[client_fd].tellg());
-        escapeCRLF(buffers[client_fd].str().substr(start, end - start));
+        // escapeCRLF(buffers[client_fd].str().substr(start, end - start));
         std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
-        std::cout << "********************************" << std::endl;
+        std::cout << "********************************readBulkStringLen" << std::endl;
         return len;
     }
 
     std::vector<RedisReply> readAllAvailableReplies(const int client_fd) {
-        std::cout << "********************************" << std::endl;
+        std::cout << "********************************readAllAvailableReplies" << std::endl;
         std::size_t start = static_cast<std::size_t>(buffers[client_fd].tellg());
         std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
         char buf[65536];
@@ -229,15 +228,15 @@ public:
             }
         }
         std::size_t end = static_cast<std::size_t>(buffers[client_fd].tellg());
-        escapeCRLF(buffers[client_fd].str().substr(start, end - start));
+        // escapeCRLF(buffers[client_fd].str().substr(start, end - start));
         std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
-        std::cout << "********************************" << std::endl;
+        std::cout << "********************************readAllAvailableReplies" << std::endl;
         return replies;
         
     }
 
     RedisReply readOneReply(const int client_fd) {
-        std::cout << "********************************" << std::endl;
+        std::cout << "********************************readOneReply" << std::endl;
         std::size_t start = static_cast<std::size_t>(buffers[client_fd].tellg());
         std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
         while (true) {
@@ -247,9 +246,9 @@ public:
             try {
                 RedisReply reply = Protocol::read(ris);
                 std::size_t end = static_cast<std::size_t>(buffers[client_fd].tellg());
-                escapeCRLF(buffers[client_fd].str().substr(start, end - start));
+                // escapeCRLF(buffers[client_fd].str().substr(start, end - start));
                 std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
-                std::cout << "********************************" << std::endl;
+                std::cout << "********************************readOneReply" << std::endl;
                 return reply;
             } catch (const std::runtime_error& e) {
                 buffers[client_fd].clear();

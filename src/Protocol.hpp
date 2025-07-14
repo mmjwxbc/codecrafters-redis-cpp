@@ -122,7 +122,7 @@ private:
     static RedisReply process(RedisInputStream& is) {
         RedisReply reply;
         auto start = is.input_stream().tellg();
-        
+        // std::cout << is.input_stream().str() << std::endl;
         char b = is.readByte();
         switch (b) {
             case '+': reply = processSimpleString(is); break;
