@@ -53,7 +53,6 @@ int main(int argc, char **argv) {
     }
     FD_SET(master_fd, &fdset);
   }
-  char buffer[65536];
   while(true) {
     fd_set tmp = fdset;
     int ret = select(max_fd + 1, &tmp, NULL, NULL, NULL);
@@ -63,17 +62,15 @@ int main(int argc, char **argv) {
       max_fd = cfd > max_fd ? cfd : max_fd;
     }
     for(int i = 0; i < max_fd + 1; i++) {
-      memset(buffer, 0, sizeof(buffer));
       if(i != server_fd && FD_ISSET(i, &tmp)) {
         vector<RedisReply> reply = redis.readAllAvailableReplies(i);
-        redis.process_command(reply, i);
-        // if(reply.empty()) {
-        //   FD_CLR(i, &fdset);
-        //   close(i);
-        //   continue;
-        // } else {
-        //   redis.process_command(reply, i);
-        // }
+        if(reply.empty()) {
+          FD_CLR(i, &fdset);
+          close(i);
+          continue;
+        } else {
+          redis.process_command(reply, i);
+        }
       }
     }
   }
