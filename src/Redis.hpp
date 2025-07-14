@@ -287,11 +287,11 @@ public:
             std::vector<RedisReply> &items = reply.elements;
             std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-            std::cout << "*****" << std::endl;
-            for(auto item : items) {
-                std::cout << item.strVal << " " << std::endl;
-            }
-            std::cout << "*****" << std::endl;
+            // std::cout << "*****" << std::endl;
+            // for(auto item : items) {
+            //     std::cout << item.strVal << " " << std::endl;
+            // }
+            // std::cout << "*****" << std::endl;
             if (command == "echo") {
                 items.erase(items.begin());
                 sendCommand(items, client_fd);
@@ -379,7 +379,7 @@ public:
                     }
                     sendCommand({makeBulk(oss.str())}, client_fd);
                 }
-            } else if(command == "replconf" && client_fd == _master_fd) {
+            } else if(command == "replconf") {
                 std::string &arg = items[1].strVal;
                 std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
                 std::cout << "command = " << command << " arg = " << arg << std::endl;
