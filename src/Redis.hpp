@@ -272,11 +272,11 @@ public:
             std::vector<RedisReply> &items = reply.elements;
             std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-            // std::cout << "*****" << std::endl;
-            // for(auto item : items) {
-            //     std::cout << item.strVal << " " << std::endl;
-            // }
-            // std::cout << "*****" << std::endl;
+            std::cout << "*****" << std::endl;
+            for(auto item : items) {
+                std::cout << item.strVal << " " << std::endl;
+            }
+            std::cout << "*****" << std::endl;
             if (command == "echo") {
                 items.erase(items.begin());
                 sendCommand(items, client_fd);
