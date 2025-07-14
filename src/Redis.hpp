@@ -131,6 +131,7 @@ public:
             std::string rdb_data(rdb_len, '\0');
             master_buffer.read(&rdb_data[0], rdb_len);
             _master_fd = master_fd;
+            std::cout << "Receive RDB FILE" << std::endl;
         }
         metadata.insert_or_assign("dir", dir);
         metadata.insert_or_assign("dbfilename", dbfilename);

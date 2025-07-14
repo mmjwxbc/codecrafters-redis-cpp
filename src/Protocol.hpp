@@ -2,6 +2,7 @@
 #define PROTOCOL_HH
 
 #include <cassert>
+#include <cstdio>
 #include <istream>
 #include <string>
 #include <vector>
@@ -131,7 +132,7 @@ private:
             case '$': reply = processBulkString(is); break;
             case '*': reply = processArray(is); break;
             default:
-                throw std::runtime_error(std::string("Unknown reply type: ") + b);
+                perror("fuck process reply!!!\n");
         }
         auto end = is.input_stream().tellg();
         reply.len = static_cast<size_t>(end - start);
