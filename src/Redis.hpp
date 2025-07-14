@@ -6,6 +6,7 @@
 #include <string>
 #include <stdexcept>
 #include <netdb.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -81,15 +82,21 @@ public:
             // Send PING to master after connection
             sendCommand({makeArray({makeBulk("PING")})}, master_fd);
             RedisReply reply = readOneReply(master_fd);
+            // std::cout << reply.strVal << std::endl;
 
             // REPLCONF listening-port <PORT>
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
             // REPLCONF capa psync2
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
             reply = readOneReply(master_fd);
+            // std::cout << reply.strVal << std::endl;
             reply = readOneReply(master_fd);
+            // std::cout << reply.strVal << std::endl;
+
             sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
             reply = readOneReply(master_fd);
+            // std::cout << reply.strVal << std::endl;
+
             int rdb_len = readBulkStringLen(master_fd);
             std::stringstream& master_buffer = buffers[master_fd];
 
@@ -123,6 +130,8 @@ public:
             }
             std::string rdb_data(rdb_len, '\0');
             master_buffer.read(&rdb_data[0], rdb_len);
+            std::cout << rdb_data << std::endl;
+
             _master_fd = master_fd;
         }
         metadata.insert_or_assign("dir", dir);
@@ -169,6 +178,9 @@ public:
     }
 
     int readBulkStringLen(const int client_fd) {
+        std::cout << "********************************" << std::endl;
+        std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
+        std::cout << "Debug: last str : " << buffers[client_fd].str() << std::endl;
         char buf[1024];
         for(int i = 0; i < 1024; i++) {
             if(::recv(client_fd, buf + i, 1, 0) != 1) {
@@ -180,10 +192,17 @@ public:
             }
         }
         RedisInputStream ris(buffers[client_fd]);
-        return Protocol::processBulkStringlen(ris);
+        int len =  Protocol::processBulkStringlen(ris);
+        std::cout << "Debug: last str : " << buffers[client_fd].str() << std::endl;
+        std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
+        std::cout << "********************************" << std::endl;
+        return len;
     }
 
     std::vector<RedisReply> readAllAvailableReplies(const int client_fd) {
+        std::cout << "********************************" << std::endl;
+        std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
+        std::cout << "Debug: last str : " << buffers[client_fd].str() << std::endl;
         char buf[65536];
         ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
         if (n < 0) throw std::runtime_error("Read error or connection closed");
@@ -198,6 +217,8 @@ public:
             std::streampos prevPos = buffers[client_fd].tellg();
             try {
                 RedisReply reply = Protocol::read(ris);
+                std::cout << "Debug: reply len : " << reply.len << std::endl;
+                std::cout << "Debug: cur str : " << buffers[client_fd].str()<< std::endl;
                 replies.push_back(std::move(reply));
             } catch (const std::runtime_error& e) {
                 buffers[client_fd].clear();
@@ -205,16 +226,25 @@ public:
                 return replies;
             }
         }
+        std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
+        std::cout << "********************************" << std::endl;
         return replies;
+        
     }
 
     RedisReply readOneReply(const int client_fd) {
+        std::cout << "********************************" << std::endl;
+        std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
+        std::cout << "Debug: last str : " << buffers[client_fd].str() << std::endl;
         while (true) {
             RedisInputStream ris(buffers[client_fd]);
             std::streampos prevPos = buffers[client_fd].tellg();
 
             try {
                 RedisReply reply = Protocol::read(ris);
+                std::cout << "Debug: reply len : " << reply.len << std::endl;
+                std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
+                std::cout << "********************************" << std::endl;
                 return reply;
             } catch (const std::runtime_error& e) {
                 buffers[client_fd].clear();
@@ -226,8 +256,11 @@ public:
                 if (n == 0) throw std::runtime_error("connection closed (EOF)");
 
                 buffers[client_fd].write(buf, n);  // append new data into buffer
+                std::cout << "Debug: cur str : " << buffers[client_fd].str()<< std::endl;
             }
         }
+        std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
+        std::cout << "********************************" << std::endl;
     }
 
 
