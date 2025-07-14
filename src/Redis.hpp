@@ -219,8 +219,8 @@ public:
             std::streampos prevPos = buffers[client_fd].tellg();
             try {
                 RedisReply reply = Protocol::read(ris);
-                std::cout << "Debug: reply len : " << reply.len << std::endl;
-                std::cout << "Debug: cur str : " << buffers[client_fd].str()<< std::endl;
+                // std::cout << "Debug: reply len : " << reply.len << std::endl;
+                // std::cout << "Debug: cur str : " << buffers[client_fd].str()<< std::endl;
                 replies.push_back(std::move(reply));
             } catch (const std::runtime_error& e) {
                 buffers[client_fd].clear();
