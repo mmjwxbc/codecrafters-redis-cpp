@@ -363,7 +363,7 @@ public:
                     }
                     sendCommand({makeBulk(oss.str())}, client_fd);
                 }
-            } else if(command == "replconf") {
+            } else if(command == "replconf" && client_fd == _master_fd) {
                 std::string &arg = items[1].strVal;
                 std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
                 std::cout << "command = " << command << " arg = " << arg << std::endl;
