@@ -80,7 +80,6 @@ public:
 
             // Send PING to master after connection
             sendCommand({makeArray({makeBulk("PING")})}, master_fd);
-            char buf[65536];
             RedisReply reply = readOneReply(master_fd);
 
             // REPLCONF listening-port <PORT>
@@ -92,22 +91,38 @@ public:
             sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
             reply = readOneReply(master_fd);
             int rdb_len = readBulkStringLen(master_fd);
-            std::string rdb_data(rdb_len, '\0');
-            std::cout << rdb_len << std::endl;
-            size_t total_read = 0;
-            while (total_read < rdb_len) {
-                ssize_t n = ::recv(master_fd, &rdb_data[total_read], rdb_len - total_read, 0);
-                // std::cout << "current read bytes " << total_read << std::endl; 
-                if (n < 0) {
-                    throw std::runtime_error("recv error while reading RDB data");
-                } else if (n == 0) {
-                    throw std::runtime_error("connection closed before RDB fully received");
-                }
-                total_read += n;
-            }  
-            //     std::cout << "current read bytes " << total_read << std::endl; 
+            std::stringstream& master_buffer = buffers[master_fd];
 
-            // std::cout << "hand shake successed " << std::endl;
+            std::streampos current_read_pos = master_buffer.tellg();
+            master_buffer.seekg(0, std::ios::end);
+            std::streampos end_pos = master_buffer.tellg();
+            master_buffer.seekg(current_read_pos);
+            size_t readable_bytes_in_buffer = end_pos - current_read_pos;
+
+
+            if (readable_bytes_in_buffer < rdb_len) {
+                size_t bytes_to_read_from_kernel = rdb_len - readable_bytes_in_buffer;
+                
+                std::vector<char> temp_buf(65536);
+                size_t total_received_from_kernel = 0;
+
+                while (total_received_from_kernel < bytes_to_read_from_kernel) {
+                    ssize_t n = ::recv(master_fd, temp_buf.data(), temp_buf.size(), 0);
+
+                    if (n < 0) {
+                        throw std::runtime_error("recv error while filling buffer for RDB");
+                    }
+                    if (n == 0) {
+                        throw std::runtime_error("connection closed before RDB fully received");
+                    }
+
+                    master_buffer.write(temp_buf.data(), n);
+                    
+                    total_received_from_kernel += n;
+                }
+            }
+            std::string rdb_data(rdb_len, '\0');
+            master_buffer.read(&rdb_data[0], rdb_len);
             _master_fd = master_fd;
         }
         metadata.insert_or_assign("dir", dir);
