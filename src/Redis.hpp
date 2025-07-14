@@ -201,10 +201,21 @@ public:
         return len;
     }
 
+    // 判断buffer里是否还有未处理数据
+    bool buffer_has_more_data(int client_fd) {
+        auto& buf = buffers[client_fd];
+        auto cur = buf.tellg();
+        buf.seekg(0, std::ios::end);
+        auto end = buf.tellg();
+        buf.seekg(cur);
+        return end > cur;
+    }
+
     std::vector<RedisReply> readAllAvailableReplies(const int client_fd) {
         std::vector<RedisReply> replies;
-        RedisInputStream ris(buffers[client_fd]);
+        // 先尽可能解析buffer中的所有数据
         while (true) {
+            RedisInputStream ris(buffers[client_fd]);
             std::streampos prevPos = buffers[client_fd].tellg();
             try {
                 RedisReply reply = Protocol::read(ris);
@@ -212,20 +223,20 @@ public:
             } catch (const std::runtime_error& e) {
                 buffers[client_fd].clear();
                 buffers[client_fd].seekg(prevPos);
-                break; // buffer 里数据不够，跳出
+                break;
             }
         }
-        // 只有当 buffer 里没有完整命令时，再去 recv 新数据
+        // 再尝试读取新数据
         char buf[65536];
         ssize_t n = ::recv(client_fd, buf, sizeof(buf), MSG_DONTWAIT);
         if (n > 0) {
             buffers[client_fd].write(buf, n);
-            // 再次尝试解析
-            RedisInputStream ris2(buffers[client_fd]);
+            // 再次尽可能解析buffer中的所有数据
             while (true) {
+                RedisInputStream ris(buffers[client_fd]);
                 std::streampos prevPos = buffers[client_fd].tellg();
                 try {
-                    RedisReply reply = Protocol::read(ris2);
+                    RedisReply reply = Protocol::read(ris);
                     replies.push_back(std::move(reply));
                 } catch (const std::runtime_error& e) {
                     buffers[client_fd].clear();
@@ -233,6 +244,9 @@ public:
                     break;
                 }
             }
+        } else if (n == 0) {
+            // EOF
+            return {};
         }
         return replies;
     }
