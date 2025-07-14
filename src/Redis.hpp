@@ -202,37 +202,39 @@ public:
     }
 
     std::vector<RedisReply> readAllAvailableReplies(const int client_fd) {
-        std::cout << "********************************readAllAvailableReplies" << std::endl;
-        std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
-        char buf[65536];
-        ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
-        if (n < 0) throw std::runtime_error("Read error or connection closed");
-        else if (n == 0) return {};  // EOF
-
-        buffers[client_fd].write(buf, n);  // 将数据追加进 buffer
-
         std::vector<RedisReply> replies;
         RedisInputStream ris(buffers[client_fd]);
-
         while (true) {
             std::streampos prevPos = buffers[client_fd].tellg();
             try {
                 RedisReply reply = Protocol::read(ris);
-                // std::cout << "Debug: reply len : " << reply.len << std::endl;
-                // std::cout << "Debug: cur str : " << buffers[client_fd].str()<< std::endl;
                 replies.push_back(std::move(reply));
             } catch (const std::runtime_error& e) {
                 buffers[client_fd].clear();
                 buffers[client_fd].seekg(prevPos);
-                return replies;
+                break; // buffer 里数据不够，跳出
             }
         }
-        // std::size_t end = static_cast<std::size_t>(buffers[client_fd].tellg());
-        // // escapeCRLF(buffers[client_fd].str().substr(start, end - start));
-        std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
-        std::cout << "********************************readAllAvailableReplies" << std::endl;
+        // 只有当 buffer 里没有完整命令时，再去 recv 新数据
+        char buf[65536];
+        ssize_t n = ::recv(client_fd, buf, sizeof(buf), MSG_DONTWAIT);
+        if (n > 0) {
+            buffers[client_fd].write(buf, n);
+            // 再次尝试解析
+            RedisInputStream ris2(buffers[client_fd]);
+            while (true) {
+                std::streampos prevPos = buffers[client_fd].tellg();
+                try {
+                    RedisReply reply = Protocol::read(ris2);
+                    replies.push_back(std::move(reply));
+                } catch (const std::runtime_error& e) {
+                    buffers[client_fd].clear();
+                    buffers[client_fd].seekg(prevPos);
+                    break;
+                }
+            }
+        }
         return replies;
-        
     }
 
     RedisReply readOneReply(const int client_fd) {
