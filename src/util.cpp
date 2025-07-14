@@ -20,3 +20,13 @@ bool matchPattern(const std::string &pattern, const std::string &text) {
     while (p < pattern.size() && pattern[p] == '*') ++p;
     return p == pattern.size();
 }
+
+std::string escapeCRLF(const std::string& input) {
+    std::string out;
+    for (char c : input) {
+        if (c == '\r') out += "\\r";
+        else if (c == '\n') out += "\\n";
+        else out += c;
+    }
+    return out;
+}

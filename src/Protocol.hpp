@@ -25,6 +25,7 @@ struct RedisReply {
     std::string strVal;
     int64_t intVal;
     std::vector<RedisReply> elements;
+    std::string resp;
     size_t len;
 
     RedisReply() : type(REPLY_NIL), intVal(0) {}
