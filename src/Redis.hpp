@@ -130,7 +130,7 @@ public:
             }
             std::string rdb_data(rdb_len, '\0');
             master_buffer.read(&rdb_data[0], rdb_len);
-
+            std::cout << buffers[master_fd].str() << std::endl;
             _master_fd = master_fd;
         }
         metadata.insert_or_assign("dir", dir);
