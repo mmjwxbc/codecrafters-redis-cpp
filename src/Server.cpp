@@ -65,14 +65,15 @@ int main(int argc, char **argv) {
     for(int i = 0; i < max_fd + 1; i++) {
       memset(buffer, 0, sizeof(buffer));
       if(i != server_fd && FD_ISSET(i, &tmp)) {
-        vector<RedisReply> reply = redis.readAllAvailableReplies(i);
-        if(reply.empty()) {
-          FD_CLR(i, &fdset);
-          close(i);
-          continue;
-        } else {
-          redis.process_command(reply, i);
-        }
+        RedisReply reply = redis.readOneReply(i);
+        redis.process_command({reply}, i);
+        // if(reply.empty()) {
+        //   FD_CLR(i, &fdset);
+        //   close(i);
+        //   continue;
+        // } else {
+        //   redis.process_command(reply, i);
+        // }
       }
     }
   }

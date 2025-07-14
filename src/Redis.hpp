@@ -130,7 +130,6 @@ public:
             }
             std::string rdb_data(rdb_len, '\0');
             master_buffer.read(&rdb_data[0], rdb_len);
-            std::cout << rdb_data << std::endl;
 
             _master_fd = master_fd;
         }
