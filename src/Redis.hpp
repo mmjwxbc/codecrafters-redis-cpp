@@ -108,6 +108,7 @@ public:
             std::cout << reply.strVal << std::endl;
 
             int rdb_len = readBulkStringLen(master_fd);
+            std::cout << rdb_len << std::endl;
             std::stringstream& master_buffer = buffers[master_fd];
 
             std::streampos current_read_pos = master_buffer.tellg();
