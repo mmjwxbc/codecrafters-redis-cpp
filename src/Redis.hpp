@@ -84,6 +84,7 @@ public:
             RedisReply reply = readOneReply(master_fd);
             // std::cout << reply.strVal << std::endl;
             if(reply.strVal != "PONG") {
+                std::cout << reply.strVal << std::endl;
                 throw std::runtime_error("SLAVE PING FAILED");
             }
             // REPLCONF listening-port <PORT>
@@ -91,6 +92,7 @@ public:
             // REPLCONF capa psync2
             reply = readOneReply(master_fd);
             if(reply.strVal != "OK") {
+                std::cout << reply.strVal << std::endl;
                 throw std::runtime_error("LISTENING-PORT FAILED");
             }
             sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
@@ -98,11 +100,12 @@ public:
             reply = readOneReply(master_fd);
             // std::cout << reply.strVal << std::endl;
             if(reply.strVal != "OK") {
+                std::cout << reply.strVal << std::endl;
                 throw std::runtime_error("LISTENING-PORT FAILED");
             }
             sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
             reply = readOneReply(master_fd);
-            // std::cout << reply.strVal << std::endl;
+            std::cout << reply.strVal << std::endl;
 
             int rdb_len = readBulkStringLen(master_fd);
             std::stringstream& master_buffer = buffers[master_fd];
