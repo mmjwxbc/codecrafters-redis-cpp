@@ -64,7 +64,7 @@ public:
 
             int reuse = 1;
             if (setsockopt(master_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-                throw std::runtime_error("set sockopt failed\n")
+                throw std::runtime_error("set sockopt failed\n");
             }
 
             struct addrinfo hints{}, *res;
