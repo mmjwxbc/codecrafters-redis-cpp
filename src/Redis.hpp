@@ -222,7 +222,7 @@ public:
         return end > cur;
     }
 
-    std::vector<RedisReply> readAllAvailableReplies(const int client_fd) {
+    std::vector<RedisReply> readAllAvailableReplies(const int client_fd, bool &is_close) {
         std::vector<RedisReply> replies;
         // 先尽可能解析buffer中的所有数据
         while (true) {
@@ -257,6 +257,7 @@ public:
             }
         } else if (n == 0) {
             // EOF
+            is_close = true;
             return {};
         }
         return replies;

@@ -63,18 +63,20 @@ int main(int argc, char **argv) {
     }
     for(int i = 0; i < max_fd + 1; i++) {
       if(i != server_fd && FD_ISSET(i, &tmp)) {
-        while (true) {
-          RedisReply reply = redis.readOneReply(i);
-          // if(reply.empty()) {
-          //   FD_CLR(i, &fdset);
-          //   close(i);
-          //   break;
-          // } else {
-          //   redis.process_command(reply, i);
-          // }
-          redis.process_command({reply}, i);
+        // while (true) {
+          bool is_close = false;
+          vector<RedisReply> reply = redis.readAllAvailableReplies(i, is_close);
+
+          if(not reply.empty()){
+            redis.process_command(reply, i);
+          }
+          if(is_close) { 
+            FD_CLR(i, &fdset);
+            close(i);
+            break;
+          // redis.process_command({reply}, i);
           // 只要buffer里还有未处理数据就继续处理
-          if (!redis.buffer_has_more_data(i)) break;
+          // if (!redis.buffer_has_more_data(i)) break;
         }
       }
     }
