@@ -194,27 +194,32 @@ public:
     }
 
     int readBulkStringLen(const int client_fd) {
-        // std::cout << "********************************readBulkStringLen" << std::endl;
-        // std::size_t start = static_cast<std::size_t>(buffers[client_fd].tellg());
-        // std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
-        // std::cout << "Debug: last str : " << buffers[client_fd].str() << std::endl;
-        char buf[1024];
-        for(int i = 0; i < 1024; i++) {
-            if(::recv(client_fd, buf + i, 1, 0) != 1) {
-                throw std::runtime_error("process bulk string len failed");
-            }
-            if(buf[i] == '\n') {
-                buffers[client_fd].write(buf, i + 1);
-                break;
+        std::string line;
+        char c;
+        while (true) {
+            std::streampos prevPos = buffers[client_fd].tellg();
+            if (buffers[client_fd].get(c)) {
+                line += c;
+                if (c == '\n') {
+                    buffers[client_fd].seekg(prevPos + std::streamoff(1)); // 保持指针在正确位置
+                    break;
+                }
+            } else {
+                char buf[1024];
+                ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
+                if (n <= 0) throw std::runtime_error("connection closed or error");
+                buffers[client_fd].clear();
+                buffers[client_fd].seekg(0, std::ios::end);
+                buffers[client_fd].write(buf, n);
+                buffers[client_fd].seekg(prevPos);
             }
         }
-        RedisInputStream ris(buffers[client_fd]);
-        int len =  Protocol::processBulkStringlen(ris);
-        // // std::cout << "Debug: last str : " << buffers[client_fd].str() << std::endl;
-        // std::size_t end = static_cast<std::size_t>(buffers[client_fd].tellg());
-        // // escapeCRLF(buffers[client_fd].str().substr(start, end - start));
-        // std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
-        // std::cout << "********************************readBulkStringLen" << std::endl;
+        std::istringstream iss(line);
+        char type;
+        iss >> type;
+        if (type != '$') throw std::runtime_error("Not a bulk string");
+        int len;
+        iss >> len;
         return len;
     }
 
