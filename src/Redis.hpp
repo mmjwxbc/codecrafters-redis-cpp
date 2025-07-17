@@ -61,6 +61,12 @@ public:
             if (master_fd < 0) {
                 throw std::runtime_error("socket creation failed");
             }
+
+            int reuse = 1;
+            if (setsockopt(master_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+                throw std::runtime_error("set sockopt failed\n")
+            }
+
             struct addrinfo hints{}, *res;
             hints.ai_family = AF_INET;        // IPv4
             hints.ai_socktype = SOCK_STREAM;  // TCP stream socket
