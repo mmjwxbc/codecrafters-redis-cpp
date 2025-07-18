@@ -432,6 +432,8 @@ public:
                 }
                 slave_fds.emplace_back(client_fd);
                 // std::cout << "slave client fd = " << client_fd << std::endl;
+            } else if(command == "wait") {
+                sendReply({makeInterger(0)}, client_fd);
             }
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
             if(client_fd == _master_fd) {
@@ -481,6 +483,14 @@ private:
         RedisReply r;
         r.type = REPLY_BULK;
         r.strVal = s;
+        return r;
+    }
+
+    RedisReply makeInterger(const int val) {
+        RedisReply r;
+        r.type = REPLY_INTEGER;
+        // r.strVal = s;
+        r.intVal = val;
         return r;
     }
 
