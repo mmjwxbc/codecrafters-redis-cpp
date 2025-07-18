@@ -10,6 +10,7 @@ std::optional<RedisReply> Protocol::read(RedisInputStream& is) {
     if (!reply.has_value()) {
         is.resetCursor(mark);  // rollback on failure
     } else {
+        reply.value().len = is.getCursor(); 
         is.buffer().erase(0, is.getCursor());
     }
     return reply;

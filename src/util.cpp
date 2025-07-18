@@ -1,5 +1,7 @@
 #include <string>
 #include <iostream>
+#include <fcntl.h>
+
 bool matchPattern(const std::string &pattern, const std::string &text) {
     size_t p = 0, t = 0, star = std::string::npos, match = 0;
 
@@ -29,4 +31,17 @@ void escapeCRLF(const std::string& input) {
         else out += c;
     }
     std::cout << out << std::endl;
+}
+
+
+void set_non_blocking(const int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1) {
+        perror("fcntl get");
+        exit(1);
+    }
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        perror("fcntl set");
+        exit(1);
+    }
 }

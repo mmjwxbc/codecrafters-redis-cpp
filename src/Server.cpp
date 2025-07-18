@@ -1,5 +1,6 @@
 #include "Protocol.hpp"
 #include "Redis.hpp"
+#include "RedisReply.hpp"
 #include <arpa/inet.h>
 #include <cstddef>
 #include <cstdio>
@@ -48,6 +49,17 @@ int main(int argc, char **argv) {
   int max_fd = server_fd;
   int master_fd = redis.master_fd();
   if (master_fd != -1) {
+    cout << "master fd = " << master_fd << endl;
+    vector<RedisReply> master_reply;
+    while (true) {
+      optional<RedisReply> reply = redis.readOneReply(master_fd);
+      if (reply.has_value()) {
+        master_reply.emplace_back(reply.value());
+      } else {
+        break;
+      }
+    }
+    redis.process_command(master_reply, master_fd);
     if (master_fd > max_fd) {
       max_fd = master_fd;
     }
@@ -58,31 +70,173 @@ int main(int argc, char **argv) {
     int ret = select(max_fd + 1, &tmp, NULL, NULL, NULL);
     if (FD_ISSET(server_fd, &tmp)) {
       int cfd = accept(server_fd, NULL, NULL);
+      set_non_blocking(cfd);
+      cout << "client fd = " << cfd << endl;
       FD_SET(cfd, &fdset);
       max_fd = cfd > max_fd ? cfd : max_fd;
     }
     for (int i = 0; i < max_fd + 1; i++) {
       if (i != server_fd && FD_ISSET(i, &tmp)) {
         bool is_close = false;
-        while (true) {
-          optional<RedisReply> reply = redis.readOneReply(i, is_close);
-
-          if (reply.has_value()) {
-            redis.process_command({reply.value()}, i);
-          }
-          if (is_close) {
-            FD_CLR(i, &fdset);
-            close(i);
-            break;
-          }
-          if (reply.has_value() && redis.buffer_has_more_data(i)) {
-            
+        vector<RedisReply> replies;
+        redis.recv_data(i, is_close);
+        while(true) {
+          optional<RedisReply> reply = redis.readOneReply(i);
+          if(reply.has_value()) {
+            replies.emplace_back(reply.value());
           } else {
             break;
+          } 
+          if(is_close) {
+            break;
           }
+        }
+        redis.process_command(replies, i);
+        if (is_close) {
+          FD_CLR(i, &fdset);
+          close(i);
+          break;
         }
       }
     }
   }
   return 0;
 }
+
+// #include "Protocol.hpp"
+// #include "Redis.hpp"
+// #include "RedisReply.hpp"
+// #include <arpa/inet.h>
+// #include <cstddef>
+// #include <cstdio>
+// #include <cstdlib>
+// #include <cstring>
+// #include <iostream>
+// #include <netdb.h>
+// #include <string>
+// #include <sys/epoll.h>
+// #include <sys/socket.h>
+// #include <sys/types.h>
+// #include <unistd.h>
+// #include <vector>
+// #include <fcntl.h>
+
+
+// using namespace std;
+
+// int main(int argc, char **argv) {
+//   std::cout << std::unitbuf;
+//   std::cerr << std::unitbuf;
+
+//   string dir, dbfiliname, replicaof;
+//   int port = -1;
+//   for (int i = 1; i < argc - 1; ++i) {
+//     string key = argv[i];
+//     if (key == "--dir") {
+//       dir = argv[++i];
+//     } else if (key == "--dbfilename") {
+//       dbfiliname = argv[++i];
+//     } else if (key == "--port") {
+//       port = stoi(argv[++i]);
+//     } else if (key == "--replicaof") {
+//       replicaof = argv[++i];
+//     }
+//   }
+
+//   port = (port == -1) ? Protocol::DEFAULT_PORT : port;
+//   bool is_master = replicaof.empty();
+//   Redis redis(dir, dbfiliname, 0, port, is_master, replicaof);
+
+//   const int server_fd = redis.server_fd();
+
+//   // 1. 创建 epoll 实例
+//   int epoll_fd = epoll_create1(0);
+//   if (epoll_fd == -1) {
+//     perror("epoll_create1");
+//     exit(EXIT_FAILURE);
+//   }
+
+//   // 2. 注册 server_fd 到 epoll 中
+//   epoll_event ev;
+//   ev.events = EPOLLIN;
+//   ev.data.fd = server_fd;
+//   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_fd, &ev);
+
+//   int master_fd = redis.master_fd();
+//   if (master_fd != -1) {
+//     vector<RedisReply> master_reply;
+//     while (true) {
+//       bool is_close = true;
+//       optional<RedisReply> reply = redis.readOneReply(master_fd, is_close);
+//       if (reply.has_value()) {
+//         master_reply.emplace_back(reply.value());
+//       } else {
+//         break;
+//       }
+//       if (is_close) {
+//         break;
+//       }
+//     }
+//     redis.process_command(master_reply, master_fd);
+//     int flags = fcntl(master_fd, F_GETFL, 0);
+//     fcntl(master_fd, F_SETFL, flags | O_NONBLOCK);
+//     cout << "master fd = " << master_fd << endl;
+//     epoll_event master_ev;
+//     master_ev.events = EPOLLIN;
+//     master_ev.data.fd = master_fd;
+//     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, master_fd, &master_ev);
+//   }
+
+//   const int MAX_EVENTS = 64;
+//   epoll_event events[MAX_EVENTS];
+
+//   while (true) {
+//     int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+//     if (nfds == -1) {
+//       perror("epoll_wait");
+//       break;
+//     }
+
+//     for (int i = 0; i < nfds; ++i) {
+//       int fd = events[i].data.fd;
+
+//       if (fd == server_fd) {
+//         int cfd = accept(server_fd, NULL, NULL);
+//         int flags = fcntl(cfd, F_GETFL, 0);
+//         fcntl(cfd, F_SETFL, flags | O_NONBLOCK);
+//         if (cfd == -1) {
+//           perror("accept");
+//           continue;
+//         }
+//         cout << "client fd = " << cfd << endl;
+
+//         epoll_event client_ev;
+//         client_ev.events = EPOLLIN;
+//         client_ev.data.fd = cfd;
+//         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, cfd, &client_ev);
+//       } else {
+//         bool is_close = false;
+//         vector<RedisReply> replies;
+//         while (true) {
+//           optional<RedisReply> reply = redis.readOneReply(fd, is_close);
+//           if (reply.has_value()) {
+//             replies.emplace_back(reply.value());
+//           } else {
+//             break;
+//           }
+//           if (is_close) {
+//             break;
+//           }
+//         }
+//         redis.process_command(replies, fd);
+//         if (is_close) {
+//           epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+//           close(fd);
+//         }
+//       }
+//     }
+//   }
+
+//   close(epoll_fd);
+//   return 0;
+// }

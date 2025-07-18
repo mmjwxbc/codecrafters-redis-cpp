@@ -88,15 +88,17 @@ public:
                 close(master_fd);
                 throw std::runtime_error("connect failed to master");
             }
+            set_non_blocking(master_fd);
 
             freeaddrinfo(res); // Clean up addrinfo
 
             // Send PING to master after connection
             sendReply({makeArray({makeBulk("PING")})}, master_fd);
-            std::optional<RedisReply> reply = readOneReply(master_fd, is_close);
+            std::optional<RedisReply> reply = readOneReply(master_fd);
             // std::cout << reply.strVal << std::endl
             while(not reply.has_value()) {
-                reply = readOneReply(master_fd, is_close);
+                recv_data(master_fd, is_close);
+                reply = readOneReply(master_fd);
             }
             if(reply.value().strVal != "PONG") {
                 std::cout << reply.value().strVal << std::endl;
@@ -105,9 +107,10 @@ public:
             // REPLCONF listening-port <PORT>
             sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
             // REPLCONF capa psync2
-            reply = readOneReply(master_fd, is_close);
+            reply = readOneReply(master_fd);
             while(not reply.has_value()) {
-                reply = readOneReply(master_fd, is_close);
+                recv_data(master_fd, is_close);
+                reply = readOneReply(master_fd);
             }
             if(reply.value().strVal != "OK") {
                 std::cout << reply.value().strVal << std::endl;
@@ -115,9 +118,10 @@ public:
             }
             sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
             // std::cout << reply.strVal << std::endl;
-            reply = readOneReply(master_fd, is_close);
+            reply = readOneReply(master_fd);
             while(not reply.has_value()) {
-                reply = readOneReply(master_fd, is_close);
+                recv_data(master_fd, is_close);
+                reply = readOneReply(master_fd);
             }
             // std::cout << reply.strVal << std::endl;
             if(reply.value().strVal != "OK") {
@@ -125,14 +129,16 @@ public:
                 throw std::runtime_error("LISTENING-PORT FAILED");
             }
             sendReply({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
-            reply = readOneReply(master_fd, is_close);
+            reply = readOneReply(master_fd);
             while(not reply.has_value()) {
-                reply = readOneReply(master_fd, is_close);
+                recv_data(master_fd, is_close);
+                reply = readOneReply(master_fd);
             }
             std::cout << reply.value().strVal << std::endl;
 
             auto rdb_len = readBulkStringLen(master_fd);
             while(not rdb_len.has_value()) {
+                recv_data(master_fd, is_close);
                 rdb_len = readBulkStringLen(master_fd);
             }
             std::string& master_buffer = buffers[master_fd];
@@ -213,13 +219,6 @@ public:
     std::optional<int64_t> readBulkStringLen(const int client_fd) {
         RedisInputStream is(buffers[client_fd]);
         std::optional<int64_t> len = Protocol::readBulkStringlen(is);
-
-        while(not len.has_value()) {
-            char buf[65536];
-            ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
-            buffers[client_fd].append(buf, n);
-            len = Protocol::readBulkStringlen(is);
-        }
         return len;
     }
 
@@ -266,8 +265,18 @@ public:
     //     }
     //     return replies;
     // }
+    void recv_data(const int client_fd, bool &is_close) {
+        char buf[65536];
+        ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
+        if (n > 0) {
+            buffers[client_fd].append(buf, n);
+        } else if (n <= 0) {
+            // EOF
+            is_close = true;
+        }
+    }
 
-    std::optional<RedisReply> readOneReply(const int client_fd, bool &is_close) {
+    std::optional<RedisReply> readOneReply(const int client_fd) {
         // std::cout << "********************************readOneReply" << std::endl;
         // std::size_t start = static_cast<std::size_t>(buffers[client_fd].tellg());
         // std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
@@ -295,15 +304,6 @@ public:
         //         // std::cout << "Debug: cur str : " << buffers[client_fd].str()<< std::endl;
         //     }
         // }
-        char buf[65536];
-        ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
-        if (n > 0) {
-            buffers[client_fd].append(buf, n);
-        } else if (n <= 0) {
-            // EOF
-            is_close = true;
-            return std::nullopt;
-        }
         RedisInputStream is(buffers[client_fd]);
         return Protocol::read(is);
     }
@@ -311,6 +311,7 @@ public:
 
     void process_command(std::vector<RedisReply> replys, const int client_fd) {
         for(auto &reply : replys) {
+
             std::vector<RedisReply> &items = reply.elements;
             std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
