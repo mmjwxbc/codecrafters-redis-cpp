@@ -1,5 +1,6 @@
 #include "Protocol.hpp"
 #include "RedisInputStream.hpp"
+#include <cassert>
 #include <cstdint>
 #include <optional>
 
@@ -16,9 +17,13 @@ std::optional<RedisReply> Protocol::read(RedisInputStream& is) {
 
 std::optional<int64_t> Protocol::readBulkStringlen(RedisInputStream& is) {
     size_t mark = is.getCursor();
+    auto byte = is.readByte();
+    assert(byte.has_value());
+    assert(byte.value() == '$');
     auto len = is.readLongCrLf();
-    if(!len.has_value()) {
+    if(not len.has_value()) {
         is.resetCursor(mark);
+        return std::nullopt;
     } else {
         is.buffer().erase(0, is.getCursor());
     }
