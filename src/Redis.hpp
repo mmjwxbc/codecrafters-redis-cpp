@@ -16,6 +16,7 @@
 #include <sstream>
 #include <cctype>
 #include <algorithm>
+#include <utility>
 #include <vector>
 #include <unordered_map>
 #include <chrono>
@@ -42,6 +43,7 @@ private:
     std::string master_host;
     int master_port;
     std::vector<int> slave_fds;
+    std::unordered_map<int, size_t> slave_offsets;
     bool is_master{true};
     int _master_fd{-1};
     size_t processed_bytes{0};
@@ -213,6 +215,11 @@ public:
 
     void sendReply(const std::vector<RedisReply> &items, const int client_fd) {
         std::string formatted = formatReply(items);
+        slave_offsets[client_fd] += formatted.size();
+        if (is_master && slave_offsets.find(client_fd) != slave_offsets.end()) {
+            processed_bytes += formatted.size();
+            metadata["master_repl_offset"] = std::to_string(processed_bytes);
+        }
         ::send(client_fd, formatted.c_str(), formatted.size(), 0);
     }
 
@@ -226,45 +233,6 @@ public:
         return !buffers[client_fd].empty();
     }
 
-    // std::vector<RedisReply> readAllAvailableReplies(const int client_fd, bool &is_close) {
-    //     std::vector<RedisReply> replies;
-    //     while (true) {
-    //         RedisInputStream ris(buffers[client_fd]);
-    //         std::streampos prevPos = buffers[client_fd].tellg();
-    //         try {
-    //             RedisReply reply = Protocol::read(ris);
-    //             replies.push_back(std::move(reply));
-    //         } catch (const std::runtime_error& e) {
-    //             buffers[client_fd].clear();
-    //             buffers[client_fd].seekg(prevPos);
-    //             break;
-    //         }
-    //     }
-    //     // 再尝试读取新数据
-    //     char buf[65536];
-    //     ssize_t n = ::recv(client_fd, buf, sizeof(buf), MSG_DONTWAIT);
-    //     if (n > 0) {
-    //         buffers[client_fd].write(buf, n);
-    //         // 再次尽可能解析buffer中的所有数据
-    //         while (true) {
-    //             RedisInputStream ris(buffers[client_fd]);
-    //             std::streampos prevPos = buffers[client_fd].tellg();
-    //             try {
-    //                 RedisReply reply = Protocol::read(ris);
-    //                 replies.push_back(std::move(reply));
-    //             } catch (const std::runtime_error& e) {
-    //                 buffers[client_fd].clear();
-    //                 buffers[client_fd].seekg(prevPos);
-    //                 break;
-    //             }
-    //         }
-    //     } else if (n == 0) {
-    //         // EOF
-    //         is_close = true;
-    //         return {};
-    //     }
-    //     return replies;
-    // }
     void recv_data(const int client_fd, bool &is_close) {
         char buf[65536];
         ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
@@ -277,33 +245,6 @@ public:
     }
 
     std::optional<RedisReply> readOneReply(const int client_fd) {
-        // std::cout << "********************************readOneReply" << std::endl;
-        // std::size_t start = static_cast<std::size_t>(buffers[client_fd].tellg());
-        // std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
-        // while (true) {
-        //     RedisInputStream ris(buffers[client_fd]);
-        //     std::streampos prevPos = buffers[client_fd].tellg();
-
-        //     try {
-        //         RedisReply reply = Protocol::read(ris);
-        //         // std::size_t end = static_cast<std::size_t>(buffers[client_fd].tellg());
-        //         // escapeCRLF(buffers[client_fd].str().substr(start, end - start));
-        //         // std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
-        //         // std::cout << "********************************readOneReply" << std::endl;
-        //         return reply;
-        //     } catch (const std::runtime_error& e) {
-        //         buffers[client_fd].clear();
-        //         buffers[client_fd].seekg(prevPos);
-
-        //         char buf[65536];
-        //         ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
-        //         if (n < 0) throw std::runtime_error("recv error");
-        //         if (n == 0) throw std::runtime_error("connection closed (EOF)");
-
-        //         buffers[client_fd].write(buf, n);  // append new data into buffer
-        //         // std::cout << "Debug: cur str : " << buffers[client_fd].str()<< std::endl;
-        //     }
-        // }
         RedisInputStream is(buffers[client_fd]);
         return Protocol::read(is);
     }
@@ -315,11 +256,11 @@ public:
             std::vector<RedisReply> &items = reply.elements;
             std::string command = items.front().strVal;
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-            std::cout << "*****" << std::endl;
-            for(auto item : items) {
-                std::cout << item.strVal << " " << std::endl;
-            }
-            std::cout << "*****" << std::endl;
+            // std::cout << "*****" << std::endl;
+            // for(auto item : items) {
+            //     std::cout << item.strVal << " " << std::endl;
+            // }
+            // std::cout << "*****" << std::endl;
             if (command == "echo") {
                 items.erase(items.begin());
                 sendReply(items, client_fd);
@@ -358,7 +299,7 @@ public:
             } else if (command == "get") {
                 if (items.size() < 2) return;
                 std::string key = items[1].strVal;
-                std::cout << "is_master = " << is_master << " GET " << key << std::endl; 
+                // std::cout << "is_master = " << is_master << " GET " << key << std::endl; 
                 if(key_elapsed_time_dbs[cur_db].count(key)) {
                     if(key_elapsed_time_dbs[cur_db][key] <= get_millis()) {
                         key_elapsed_time_dbs[cur_db].erase(key);
@@ -431,6 +372,7 @@ public:
                     throw std::runtime_error("send RDB failed");
                 }
                 slave_fds.emplace_back(client_fd);
+                slave_offsets.insert(std::make_pair(client_fd, 0));
                 // std::cout << "slave client fd = " << client_fd << std::endl;
             } else if(command == "wait") {
                 sendReply({makeInterger(slave_fds.size())}, client_fd);
