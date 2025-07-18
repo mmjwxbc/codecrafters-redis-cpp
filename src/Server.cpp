@@ -198,8 +198,7 @@ int main(int argc, char **argv) {
 
       if (fd == server_fd) {
         int cfd = accept(server_fd, NULL, NULL);
-        int flags = fcntl(cfd, F_GETFL, 0);
-        fcntl(cfd, F_SETFL, flags | O_NONBLOCK);
+        // set_non_blocking(cfd);
         if (cfd == -1) {
           perror("accept");
           continue;
@@ -214,15 +213,12 @@ int main(int argc, char **argv) {
         bool is_close = false;
         vector<RedisReply> replies;
 
-        redis.recv_data(i, is_close);
+        redis.recv_data(fd, is_close);
         while (true) {
           optional<RedisReply> reply = redis.readOneReply(fd);
           if (reply.has_value()) {
             replies.emplace_back(reply.value());
           } else {
-            break;
-          }
-          if (is_close) {
             break;
           }
         }
