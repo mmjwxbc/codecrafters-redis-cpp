@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <optional>
-
+#include <iostream>
 class RedisInputStream {
 private:
     std::string& input;
@@ -22,7 +22,7 @@ public:
     std::optional<std::string> readLine() {
         size_t end = input.find("\r\n", cursor);
         if (end == std::string::npos) return std::nullopt;
-        std::string line = input.substr(cursor, end - cursor);
+        std::string line = input.substr(cursor, end - cursor + 2);
         cursor = end + 2;
         line.pop_back();
         line.pop_back();
@@ -31,9 +31,10 @@ public:
 
     std::optional<int64_t> readLongCrLf() {
         auto line = readLine();
-        if (!line) return std::nullopt;
+        if (!line.has_value()) return std::nullopt;
+        std::cout << line.value() << std::endl;
         try {
-            return std::stoll(*line);
+            return std::stoll(line.value());
         } catch (...) {
             return std::nullopt;
         }
