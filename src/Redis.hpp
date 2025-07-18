@@ -433,7 +433,7 @@ public:
                 slave_fds.emplace_back(client_fd);
                 // std::cout << "slave client fd = " << client_fd << std::endl;
             } else if(command == "wait") {
-                sendReply({makeInterger(0)}, client_fd);
+                sendReply({makeInterger(slave_fds.size())}, client_fd);
             }
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
             if(client_fd == _master_fd) {
