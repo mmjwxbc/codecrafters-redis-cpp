@@ -18,7 +18,9 @@ std::optional<RedisReply> Protocol::read(RedisInputStream& is) {
 std::optional<int64_t> Protocol::readBulkStringlen(RedisInputStream& is) {
     size_t mark = is.getCursor();
     auto byte = is.readByte();
-    assert(byte.has_value());
+    if(not byte.has_value()) {
+        return std::nullopt;
+    }
     assert(byte.value() == '$');
     auto len = is.readLongCrLf();
     if(not len.has_value()) {

@@ -212,7 +212,15 @@ public:
 
     std::optional<int64_t> readBulkStringLen(const int client_fd) {
         RedisInputStream is(buffers[client_fd]);
-        return Protocol::readBulkStringlen(is);
+        std::optional<int64_t> len = Protocol::readBulkStringlen(is);
+
+        while(not len.has_value()) {
+            char buf[65536];
+            ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
+            buffers[client_fd].append(buf, n);
+            len = Protocol::readBulkStringlen(is);
+        }
+        return len;
     }
 
     bool buffer_has_more_data(int client_fd) {
