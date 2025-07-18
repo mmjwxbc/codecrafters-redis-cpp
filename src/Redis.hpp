@@ -94,7 +94,10 @@ public:
             // Send PING to master after connection
             sendReply({makeArray({makeBulk("PING")})}, master_fd);
             std::optional<RedisReply> reply = readOneReply(master_fd, is_close);
-            // std::cout << reply.strVal << std::endl;
+            // std::cout << reply.strVal << std::endl
+            while(not reply.has_value()) {
+                reply = readOneReply(master_fd, is_close);
+            }
             if(reply.value().strVal != "PONG") {
                 std::cout << reply.value().strVal << std::endl;
                 throw std::runtime_error("SLAVE PING FAILED");
@@ -103,6 +106,9 @@ public:
             sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
             // REPLCONF capa psync2
             reply = readOneReply(master_fd, is_close);
+            while(not reply.has_value()) {
+                reply = readOneReply(master_fd, is_close);
+            }
             if(reply.value().strVal != "OK") {
                 std::cout << reply.value().strVal << std::endl;
                 throw std::runtime_error("LISTENING-PORT FAILED");
@@ -110,6 +116,9 @@ public:
             sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
             // std::cout << reply.strVal << std::endl;
             reply = readOneReply(master_fd, is_close);
+            while(not reply.has_value()) {
+                reply = readOneReply(master_fd, is_close);
+            }
             // std::cout << reply.strVal << std::endl;
             if(reply.value().strVal != "OK") {
                 std::cout << reply.value().strVal << std::endl;
@@ -117,6 +126,9 @@ public:
             }
             sendReply({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
             reply = readOneReply(master_fd, is_close);
+            while(not reply.has_value()) {
+                reply = readOneReply(master_fd, is_close);
+            }
             std::cout << reply.value().strVal << std::endl;
 
             auto rdb_len = readBulkStringLen(master_fd);
