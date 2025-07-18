@@ -75,7 +75,9 @@ int main(int argc, char **argv) {
             close(i);
             break;
           }
-          if (reply.has_value() && !redis.buffer_has_more_data(i)) {
+          if (reply.has_value() && redis.buffer_has_more_data(i)) {
+            
+          } else {
             break;
           }
         }

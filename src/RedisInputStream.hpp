@@ -32,7 +32,6 @@ public:
     std::optional<int64_t> readLongCrLf() {
         auto line = readLine();
         if (!line.has_value()) return std::nullopt;
-        std::cout << line.value() << std::endl;
         try {
             return std::stoll(line.value());
         } catch (...) {
