@@ -65,10 +65,10 @@ int main(int argc, char **argv) {
       if(i != server_fd && FD_ISSET(i, &tmp)) {
         // while (true) {
           bool is_close = false;
-          vector<RedisReply> reply = redis.readAllAvailableReplies(i, is_close);
+          optional<RedisReply> reply = redis.readOneReply(i, is_close);
 
-          if(not reply.empty()){
-            redis.process_command(reply, i);
+          if(reply.has_value()){
+            redis.process_command({reply.value()}, i);
           }
           if(is_close) { 
             FD_CLR(i, &fdset);

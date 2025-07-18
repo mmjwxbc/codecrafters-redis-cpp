@@ -1,7 +1,10 @@
 #ifndef REDIS_HH
 #define REDIS_HH
 
+#include <cstddef>
+#include <cstdint>
 #include <netinet/in.h>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <stdexcept>
@@ -17,6 +20,8 @@
 #include <unordered_map>
 #include <chrono>
 #include "Protocol.hpp"
+#include "RedisInputStream.hpp"
+#include "RedisReply.hpp"
 #include "RDBParser.hpp"
 #include "util.hpp"
 #include <filesystem>
@@ -28,16 +33,16 @@ private:
     int sockfd;
     std::string host;
     int port;
-    std::unordered_map<int, std::stringstream> buffers;
+    std::unordered_map<int, std::string> buffers;
     int connection_backlog = 5;
-    int cur_db;
+    int cur_db{0};
     std::vector<std::unordered_map<std::string, std::string>> kvs;
     std::vector<std::unordered_map<std::string, int64_t>> key_elapsed_time_dbs;
     std::unordered_map<std::string, std::string> metadata;
-    bool is_master{true};
     std::string master_host;
     int master_port;
     std::vector<int> slave_fds;
+    bool is_master{true};
     int _master_fd{-1};
     size_t processed_bytes{0};
 
@@ -53,6 +58,7 @@ public:
             }
         }
         if (!replicaof.empty()) {
+            bool is_close = false;
             int space_pos = replicaof.find(' ');
             master_host = replicaof.substr(0, space_pos);
             master_port = std::stoi(replicaof.substr(space_pos + 1));
@@ -86,46 +92,44 @@ public:
             freeaddrinfo(res); // Clean up addrinfo
 
             // Send PING to master after connection
-            sendCommand({makeArray({makeBulk("PING")})}, master_fd);
-            RedisReply reply = readOneReply(master_fd);
+            sendReply({makeArray({makeBulk("PING")})}, master_fd);
+            std::optional<RedisReply> reply = readOneReply(master_fd, is_close);
             // std::cout << reply.strVal << std::endl;
-            if(reply.strVal != "PONG") {
-                std::cout << reply.strVal << std::endl;
+            if(reply.value().strVal != "PONG") {
+                std::cout << reply.value().strVal << std::endl;
                 throw std::runtime_error("SLAVE PING FAILED");
             }
             // REPLCONF listening-port <PORT>
-            sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
+            sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"), makeBulk(std::to_string(port))})}, master_fd);
             // REPLCONF capa psync2
-            reply = readOneReply(master_fd);
-            if(reply.strVal != "OK") {
-                std::cout << reply.strVal << std::endl;
+            reply = readOneReply(master_fd, is_close);
+            if(reply.value().strVal != "OK") {
+                std::cout << reply.value().strVal << std::endl;
                 throw std::runtime_error("LISTENING-PORT FAILED");
             }
-            sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
+            sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("capa"), makeBulk("psync2")})}, master_fd);
             // std::cout << reply.strVal << std::endl;
-            reply = readOneReply(master_fd);
+            reply = readOneReply(master_fd, is_close);
             // std::cout << reply.strVal << std::endl;
-            if(reply.strVal != "OK") {
-                std::cout << reply.strVal << std::endl;
+            if(reply.value().strVal != "OK") {
+                std::cout << reply.value().strVal << std::endl;
                 throw std::runtime_error("LISTENING-PORT FAILED");
             }
-            sendCommand({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
-            reply = readOneReply(master_fd);
-            std::cout << reply.strVal << std::endl;
+            sendReply({makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")})}, master_fd);
+            reply = readOneReply(master_fd, is_close);
+            std::cout << reply.value().strVal << std::endl;
 
-            int rdb_len = readBulkStringLen(master_fd);
-            std::cout << rdb_len << std::endl;
-            std::stringstream& master_buffer = buffers[master_fd];
+            auto rdb_len = readBulkStringLen(master_fd);
+            while(not rdb_len.has_value()) {
+                rdb_len = readBulkStringLen(master_fd);
+            }
+            std::string& master_buffer = buffers[master_fd];
 
-            std::streampos current_read_pos = master_buffer.tellg();
-            master_buffer.seekg(0, std::ios::end);
-            std::streampos end_pos = master_buffer.tellg();
-            master_buffer.seekg(current_read_pos);
-            size_t readable_bytes_in_buffer = end_pos - current_read_pos;
+            auto readable_bytes_in_buffer = master_buffer.size();
 
 
             if (readable_bytes_in_buffer < rdb_len) {
-                size_t bytes_to_read_from_kernel = rdb_len - readable_bytes_in_buffer;
+                size_t bytes_to_read_from_kernel = static_cast<size_t>(rdb_len.value()) - readable_bytes_in_buffer;
                 
                 std::vector<char> temp_buf(65536);
                 size_t total_received_from_kernel = 0;
@@ -140,13 +144,14 @@ public:
                         throw std::runtime_error("connection closed before RDB fully received");
                     }
 
-                    master_buffer.write(temp_buf.data(), n);
+                    master_buffer.append(temp_buf.data(), n);
                     
                     total_received_from_kernel += n;
                 }
             }
-            std::string rdb_data(rdb_len, '\0');
-            master_buffer.read(&rdb_data[0], rdb_len);
+            std::string rdb_data;
+            rdb_data = master_buffer.substr(0, rdb_len.value());
+            master_buffer.erase(0, rdb_len.value());
             _master_fd = master_fd;
             std::cout << "Receive RDB FILE" << std::endl;
         }
@@ -188,120 +193,99 @@ public:
         }
     }
 
-    void sendCommand(const std::vector<RedisReply> &items, const int client_fd) {
-        std::string formatted = formatCommand(items);
+    void sendReply(const std::vector<RedisReply> &items, const int client_fd) {
+        std::string formatted = formatReply(items);
         ::send(client_fd, formatted.c_str(), formatted.size(), 0);
     }
 
-    int readBulkStringLen(const int client_fd) {
-        std::string line;
-        char c;
-        while (true) {
-            std::streampos prevPos = buffers[client_fd].tellg();
-            if (buffers[client_fd].get(c)) {
-                line += c;
-                if (c == '\n') {
-                    buffers[client_fd].seekg(prevPos + std::streamoff(1)); // 保持指针在正确位置
-                    break;
-                }
-            } else {
-                char buf[1024];
-                ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
-                if (n <= 0) throw std::runtime_error("connection closed or error");
-                buffers[client_fd].clear();
-                buffers[client_fd].seekg(0, std::ios::end);
-                buffers[client_fd].write(buf, n);
-                buffers[client_fd].seekg(prevPos);
-            }
-        }
-        std::istringstream iss(line);
-        char type;
-        iss >> type;
-        if (type != '$') throw std::runtime_error("Not a bulk string");
-        int len;
-        iss >> len;
-        return len;
+    std::optional<int64_t> readBulkStringLen(const int client_fd) {
+        RedisInputStream is(buffers[client_fd]);
+        return Protocol::readBulkStringlen(is);
     }
 
-    // 判断buffer里是否还有未处理数据
     bool buffer_has_more_data(int client_fd) {
-        auto& buf = buffers[client_fd];
-        auto cur = buf.tellg();
-        buf.seekg(0, std::ios::end);
-        auto end = buf.tellg();
-        buf.seekg(cur);
-        return end > cur;
+        return !buffers[client_fd].empty();
     }
 
-    std::vector<RedisReply> readAllAvailableReplies(const int client_fd, bool &is_close) {
-        std::vector<RedisReply> replies;
-        // 先尽可能解析buffer中的所有数据
-        while (true) {
-            RedisInputStream ris(buffers[client_fd]);
-            std::streampos prevPos = buffers[client_fd].tellg();
-            try {
-                RedisReply reply = Protocol::read(ris);
-                replies.push_back(std::move(reply));
-            } catch (const std::runtime_error& e) {
-                buffers[client_fd].clear();
-                buffers[client_fd].seekg(prevPos);
-                break;
-            }
-        }
-        // 再尝试读取新数据
-        char buf[65536];
-        ssize_t n = ::recv(client_fd, buf, sizeof(buf), MSG_DONTWAIT);
-        if (n > 0) {
-            buffers[client_fd].write(buf, n);
-            // 再次尽可能解析buffer中的所有数据
-            while (true) {
-                RedisInputStream ris(buffers[client_fd]);
-                std::streampos prevPos = buffers[client_fd].tellg();
-                try {
-                    RedisReply reply = Protocol::read(ris);
-                    replies.push_back(std::move(reply));
-                } catch (const std::runtime_error& e) {
-                    buffers[client_fd].clear();
-                    buffers[client_fd].seekg(prevPos);
-                    break;
-                }
-            }
-        } else if (n == 0) {
-            // EOF
-            is_close = true;
-            return {};
-        }
-        return replies;
-    }
+    // std::vector<RedisReply> readAllAvailableReplies(const int client_fd, bool &is_close) {
+    //     std::vector<RedisReply> replies;
+    //     while (true) {
+    //         RedisInputStream ris(buffers[client_fd]);
+    //         std::streampos prevPos = buffers[client_fd].tellg();
+    //         try {
+    //             RedisReply reply = Protocol::read(ris);
+    //             replies.push_back(std::move(reply));
+    //         } catch (const std::runtime_error& e) {
+    //             buffers[client_fd].clear();
+    //             buffers[client_fd].seekg(prevPos);
+    //             break;
+    //         }
+    //     }
+    //     // 再尝试读取新数据
+    //     char buf[65536];
+    //     ssize_t n = ::recv(client_fd, buf, sizeof(buf), MSG_DONTWAIT);
+    //     if (n > 0) {
+    //         buffers[client_fd].write(buf, n);
+    //         // 再次尽可能解析buffer中的所有数据
+    //         while (true) {
+    //             RedisInputStream ris(buffers[client_fd]);
+    //             std::streampos prevPos = buffers[client_fd].tellg();
+    //             try {
+    //                 RedisReply reply = Protocol::read(ris);
+    //                 replies.push_back(std::move(reply));
+    //             } catch (const std::runtime_error& e) {
+    //                 buffers[client_fd].clear();
+    //                 buffers[client_fd].seekg(prevPos);
+    //                 break;
+    //             }
+    //         }
+    //     } else if (n == 0) {
+    //         // EOF
+    //         is_close = true;
+    //         return {};
+    //     }
+    //     return replies;
+    // }
 
-    RedisReply readOneReply(const int client_fd) {
+    std::optional<RedisReply> readOneReply(const int client_fd, bool &is_close) {
         // std::cout << "********************************readOneReply" << std::endl;
         // std::size_t start = static_cast<std::size_t>(buffers[client_fd].tellg());
         // std::cout << "Debug: start pos : " << buffers[client_fd].tellg() << std::endl;
-        while (true) {
-            RedisInputStream ris(buffers[client_fd]);
-            std::streampos prevPos = buffers[client_fd].tellg();
+        // while (true) {
+        //     RedisInputStream ris(buffers[client_fd]);
+        //     std::streampos prevPos = buffers[client_fd].tellg();
 
-            try {
-                RedisReply reply = Protocol::read(ris);
-                // std::size_t end = static_cast<std::size_t>(buffers[client_fd].tellg());
-                // escapeCRLF(buffers[client_fd].str().substr(start, end - start));
-                // std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
-                // std::cout << "********************************readOneReply" << std::endl;
-                return reply;
-            } catch (const std::runtime_error& e) {
-                buffers[client_fd].clear();
-                buffers[client_fd].seekg(prevPos);
+        //     try {
+        //         RedisReply reply = Protocol::read(ris);
+        //         // std::size_t end = static_cast<std::size_t>(buffers[client_fd].tellg());
+        //         // escapeCRLF(buffers[client_fd].str().substr(start, end - start));
+        //         // std::cout << "Debug: end pos : " << buffers[client_fd].tellg() << std::endl;
+        //         // std::cout << "********************************readOneReply" << std::endl;
+        //         return reply;
+        //     } catch (const std::runtime_error& e) {
+        //         buffers[client_fd].clear();
+        //         buffers[client_fd].seekg(prevPos);
 
-                char buf[65536];
-                ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
-                if (n < 0) throw std::runtime_error("recv error");
-                if (n == 0) throw std::runtime_error("connection closed (EOF)");
+        //         char buf[65536];
+        //         ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
+        //         if (n < 0) throw std::runtime_error("recv error");
+        //         if (n == 0) throw std::runtime_error("connection closed (EOF)");
 
-                buffers[client_fd].write(buf, n);  // append new data into buffer
-                // std::cout << "Debug: cur str : " << buffers[client_fd].str()<< std::endl;
-            }
+        //         buffers[client_fd].write(buf, n);  // append new data into buffer
+        //         // std::cout << "Debug: cur str : " << buffers[client_fd].str()<< std::endl;
+        //     }
+        // }
+        char buf[65536];
+        ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
+        if (n > 0) {
+            buffers[client_fd].append(buf, n);
+        } else if (n <= 0) {
+            // EOF
+            is_close = true;
+            return std::nullopt;
         }
+        RedisInputStream is(buffers[client_fd]);
+        return Protocol::read(is);
     }
 
 
@@ -317,13 +301,13 @@ public:
             std::cout << "*****" << std::endl;
             if (command == "echo") {
                 items.erase(items.begin());
-                sendCommand(items, client_fd);
+                sendReply(items, client_fd);
 
             } else if (command == "ping" && client_fd != _master_fd) {
                 RedisReply pong;
                 pong.type = REPLY_STRING;
                 pong.strVal = "PONG";
-                sendCommand({pong}, client_fd);
+                sendReply({pong}, client_fd);
             } else if (command == "set") {
                 if (items.size() < 3) return;
                 std::string key = items[1].strVal;
@@ -341,12 +325,12 @@ public:
                     RedisReply ok;
                     ok.type = REPLY_STRING;
                     ok.strVal = "OK";
-                    sendCommand({ok}, client_fd);
+                    sendReply({ok}, client_fd);
                     for(int fd: slave_fds) {
                         RedisReply slave_sync_content;
                         slave_sync_content.elements = reply.elements;
                         slave_sync_content.type = REPLY_ARRAY;
-                        sendCommand({reply}, fd);
+                        sendReply({reply}, fd);
                         // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                     }
                 }
@@ -367,7 +351,7 @@ public:
                 } else {
                     result.type = REPLY_NIL;
                 }
-                sendCommand({result}, client_fd);
+                sendReply({result}, client_fd);
             } else if(command == "config") {
                 command = items[1].strVal;
                 std::transform(command.begin(), command.end(), command.begin(), ::tolower);
@@ -376,7 +360,7 @@ public:
                         makeBulk("dir"),
                         makeBulk(metadata["dir"])
                     });
-                    sendCommand({response}, client_fd);
+                    sendReply({response}, client_fd);
                 }
             } else if(command == "keys") {
                 std::string pattern = items[1].strVal;
@@ -387,7 +371,7 @@ public:
                         reply.elements.emplace_back(std::move(makeBulk(key)));
                     }
                 }
-                sendCommand({reply}, client_fd);
+                sendReply({reply}, client_fd);
             } else if(command == "info") {
                 std::string &arg = items[1].strVal;
                 std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
@@ -400,22 +384,22 @@ public:
                     } else {
                         oss << "role:slave\n";
                     }
-                    sendCommand({makeBulk(oss.str())}, client_fd);
+                    sendReply({makeBulk(oss.str())}, client_fd);
                 }
             } else if(command == "replconf") {
                 if (items.size() > 1) {
                     std::string &arg = items[1].strVal;
                     std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
                     if(arg == "getack") {
-                        sendCommand({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk(std::to_string(processed_bytes))})}, client_fd);
+                        sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk(std::to_string(processed_bytes))})}, client_fd);
                     } else {
-                        sendCommand({makeString("OK")}, client_fd);
+                        sendReply({makeString("OK")}, client_fd);
                     }
                 } else {
-                    sendCommand({makeString("OK")}, client_fd);
+                    sendReply({makeString("OK")}, client_fd);
                 }
             } else if(command == "psync") {
-                sendCommand({makeString("FULLRESYNC " + metadata["master_replid"] + " " + metadata["master_repl_offset"])}, client_fd);
+                sendReply({makeString("FULLRESYNC " + metadata["master_replid"] + " " + metadata["master_repl_offset"])}, client_fd);
                 const std::string empty_rdb = "\x52\x45\x44\x49\x53\x30\x30\x31\x31\xfa\x09\x72\x65\x64\x69\x73\x2d\x76\x65"
                 "\x72\x05\x37\x2e\x32\x2e\x30\xfa\x0a\x72\x65\x64\x69\x73\x2d\x62\x69\x74\x73"
                 "\xc0\x40\xfa\x05\x63\x74\x69\x6d\x65\xc2\x6d\x08\xbc\x65\xfa\x08\x75\x73\x65"
@@ -437,7 +421,7 @@ public:
     }
 
 private:
-    std::string formatCommand(const std::vector<RedisReply>& items) {
+    std::string formatReply(const std::vector<RedisReply>& items) {
         std::ostringstream oss;
         for (const auto& r : items) {
             switch (r.type) {
@@ -459,7 +443,7 @@ private:
                 case REPLY_ARRAY:
                     oss << "*" << r.elements.size() << "\r\n";
                     for (const auto& sub : r.elements) {
-                        oss << formatCommand({sub});
+                        oss << formatReply({sub});
                     }
                     break;
             }
