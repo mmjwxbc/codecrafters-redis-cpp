@@ -214,8 +214,7 @@ int main(int argc, char **argv) {
          RedisWaitEvent *timer_event = redis.get_timer_event();
          if(timer_event != nullptr) {
             timer_event->on_finish(timer_event->client_fd);
-            delete timer_event;
-            timer_event = nullptr;
+            redis.clear_timer_event();
          }
          epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
          close(fd);

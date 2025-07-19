@@ -210,6 +210,13 @@ public:
         return timer_event;
     }
 
+    void clear_timer_event() {
+        if(timer_event != nullptr) {
+            delete timer_event;
+            timer_event = nullptr;
+        }
+    }
+
     int master_fd() {
         return _master_fd;
     }
@@ -376,16 +383,15 @@ public:
                         if(timer_event != nullptr) {
                             if(timer_event->ack_fds.count(client_fd) == 0)  {
                                 int64_t offset = std::stoll(items[2].strVal);
-                                if(offset >= slave_offsets[client_fd]) {
+                                if(offset >= processed_bytes) {
                                     timer_event->ack_fds.insert(client_fd);
                                     timer_event->inacks++;
                                 }
                             }
                         }
-                        if(timer_event->ack_fds.size() == timer_event->required_acks) {
-                            timer_event->on_finish(client_fd);
-                            delete timer_event;
-                            timer_event = nullptr;
+                        if(timer_event != nullptr && timer_event->ack_fds.size() == timer_event->required_acks) {
+                            timer_event->on_finish(timer_event->client_fd);
+                            clear_timer_event();
                         }
                     } else {
                         sendReply({makeString("OK")}, client_fd);
@@ -411,6 +417,27 @@ public:
                 if(items.size() < 3) return;
                 int numreplicas = std::stoi(items[1].strVal);
                 int timeout = std::stoi(items[2].strVal);
+                
+                // Check if there are any pending write operations
+                bool has_pending_operations = false;
+                for(int fd : slave_fds) {
+                    if(slave_offsets[fd] < processed_bytes) {
+                        has_pending_operations = true;
+                        break;
+                    }
+                }
+                
+                // If no pending operations, return immediately with 0
+                if(!has_pending_operations) {
+                    sendReply({makeInterger(0)}, client_fd);
+                    return;
+                }
+                
+                // Send GETACK to all replicas to check their current offset
+                for(int fd : slave_fds) {
+                    sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("GETACK"), makeBulk("*")})}, fd);
+                }
+                
                 int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
                 itimerspec it = {
                     .it_interval = {0, 0},
