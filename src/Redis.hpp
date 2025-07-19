@@ -318,6 +318,7 @@ public:
                         sendReply({reply}, fd);
                         // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                     }
+                    processed_bytes += reply.len;
                 }
             } else if (command == "get") {
                 if (items.size() < 2) return;
@@ -459,9 +460,6 @@ public:
                 epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);
             }
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
-            if(client_fd == _master_fd) {
-                processed_bytes += reply.len;
-            }
         }
         
     }
