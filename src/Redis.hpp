@@ -426,6 +426,7 @@ public:
                         break;
                     }
                 }
+                std::cout << "has_pending_operations = " << has_pending_operations << std::endl;
                 
                 // If no pending operations, return immediately with 0
                 if(!has_pending_operations) {
