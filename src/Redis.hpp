@@ -476,12 +476,11 @@ public:
                 if(kvs[cur_db].count(stream_key) != 0) {
                     throw std::runtime_error("stream key already exists in kvs");
                 }
+                if(sequence == "0" && timestamp == "0") {
+                    sendReply({makeError("ERR The ID specified in XADD must be greater than 0-0")}, client_fd);
+                }
                 if(streams.count(stream_key) == 0) {
                     streams[stream_key] = std::vector<RedisStreamEntry>();
-                    if(sequence == "0") {
-                        sendReply({makeError("ERR The ID specified in XADD must be greater than 0-0")}, client_fd);
-                        goto end;
-                    }
                 } else {
                     auto last_id = streams[stream_key].back().id;
                     std::string::size_type pos = last_id.find('-');
