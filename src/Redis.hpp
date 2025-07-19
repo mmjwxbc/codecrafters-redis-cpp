@@ -316,7 +316,6 @@ public:
                     ok.strVal = "OK";
                     sendReply({ok}, client_fd);
                     for(int fd: slave_fds) {
-                        slave_offsets[fd] += reply.len;
                         sendReply({reply}, fd);
                         // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                     }
@@ -383,6 +382,7 @@ public:
                         if(timer_event != nullptr) {
                             if(timer_event->ack_fds.count(client_fd) == 0)  {
                                 int64_t offset = std::stoll(items[2].strVal);
+                                slave_offsets[client_fd] = offset;
                                 if(offset >= processed_bytes) {
                                     timer_event->ack_fds.insert(client_fd);
                                     timer_event->inacks++;
