@@ -52,7 +52,7 @@ private:
     int epoll_fd{-1};
     size_t processed_bytes{0};
     RedisWaitEvent *timer_event{nullptr};
-    std::unordered_map<std::string, std::unordered_map<std::string, std::pair<std::string, std::string>>> streams;
+    std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> streams;
 
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
@@ -470,19 +470,32 @@ public:
                 if(items.size() < 3) return;
                 std::string stream_key = items[1].strVal;
                 std::string id = items[2].strVal;
+                std::string::size_type pos = id.find('-');
+                std::string timestamp = id.substr(0, pos);
+                std::string sequence = id.substr(pos + 1);
                 if(kvs[cur_db].count(stream_key) != 0) {
                     throw std::runtime_error("stream key already exists in kvs");
                 }
                 if(streams.count(stream_key) == 0) {
-                    streams[stream_key] = std::unordered_map<std::string, std::pair<std::string, std::string>>();
+                    streams[stream_key] = std::vector<std::pair<std::string, std::string>>();
+                } else {
+                    auto last_id = streams[stream_key].back().first;
+                    std::string::size_type pos = last_id.find('-');
+                    std::string last_timestamp = last_id.substr(0, pos);
+                    std::string last_sequence = last_id.substr(pos + 1);
+                    if(timestamp < last_timestamp || (timestamp == last_timestamp && sequence <= last_sequence)) {
+                        sendReply({makeError("(error) ERR The ID specified in XADD is equal or smaller than the target stream top item")}, client_fd);
+                        goto end;
+                    }
                 }
-                streams[stream_key][id] = std::make_pair(items[3].strVal, items[4].strVal);
+                streams[stream_key].emplace_back(std::make_pair(timestamp, sequence));
                 sendReply({makeString(items[2].strVal)}, client_fd);
             }
+            end:
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
-            if(client_fd == _master_fd) {
-                processed_bytes += reply.len;
-            }
+                if(client_fd == _master_fd) {
+                    processed_bytes += reply.len;
+                }
         }
         
     }
@@ -548,6 +561,13 @@ private:
     RedisReply makeString(const std::string &s) {
         RedisReply r;
         r.type = REPLY_STRING;
+        r.strVal = s;
+        return r;
+    }
+
+    RedisReply makeError(const std::string &s) {
+        RedisReply r;
+        r.type = REPLY_ERROR;
         r.strVal = s;
         return r;
     }
