@@ -382,6 +382,7 @@ public:
                         if(timer_event != nullptr) {
                             if(timer_event->ack_fds.count(client_fd) == 0)  {
                                 int64_t offset = std::stoll(items[2].strVal);
+                                std::cout << "fd = " << client_fd << " offset = " << offset << std::endl;
                                 slave_offsets[client_fd] = offset;
                                 if(offset >= processed_bytes) {
                                     timer_event->ack_fds.insert(client_fd);
