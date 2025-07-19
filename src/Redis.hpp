@@ -483,6 +483,8 @@ public:
                     std::string::size_type pos = last_id.find('-');
                     std::string last_timestamp = last_id.substr(0, pos);
                     std::string last_sequence = last_id.substr(pos + 1);
+                    std::cout << "last_timestamp = " << last_timestamp << " last_sequence = " << last_sequence << std::endl;
+                    std::cout << "timestamp = " << timestamp << " sequence = " << sequence << std::endl;
                     if(timestamp < last_timestamp || (timestamp == last_timestamp && sequence <= last_sequence)) {
                         sendReply({makeError("(error) ERR The ID specified in XADD is equal or smaller than the target stream top item")}, client_fd);
                         goto end;
