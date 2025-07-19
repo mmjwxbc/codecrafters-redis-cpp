@@ -211,11 +211,15 @@ int main(int argc, char **argv) {
         client_ev.data.fd = cfd;
         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, cfd, &client_ev);
       } else if(fd == timerfd) {
+         std::cout << "timerfd = " << timerfd << std::endl;
+
          RedisWaitEvent *timer_event = redis.get_timer_event();
          if(timer_event != nullptr) {
             timer_event->on_finish(timer_event->client_fd);
             redis.clear_timer_event();
+            std::cout << "destory in server" << endl;
          }
+         std::cout << "timer_event = " << timer_event << std::endl;
          epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
          close(fd);
       } else {
