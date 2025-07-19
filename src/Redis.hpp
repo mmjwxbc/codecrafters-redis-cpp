@@ -52,6 +52,7 @@ private:
     int epoll_fd{-1};
     size_t processed_bytes{0};
     RedisWaitEvent *timer_event{nullptr};
+    std::unordered_map<std::string, std::unordered_map<std::string, std::pair<std::string, std::string>>> streams;
 
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
@@ -460,9 +461,23 @@ public:
                 std::string key = items[1].strVal;
                 if(kvs[cur_db].count(key)) {
                     sendReply({makeString("string")}, client_fd);
+                } else if(streams.count(key) != 0) {
+                    sendReply({makeString("stream")}, client_fd);
                 } else {
                     sendReply({makeString("none")}, client_fd);
                 }
+            } else if(command == "xadd") {
+                if(items.size() < 3) return;
+                std::string stream_key = items[1].strVal;
+                std::string id = items[2].strVal;
+                if(kvs[cur_db].count(stream_key) != 0) {
+                    throw std::runtime_error("stream key already exists in kvs");
+                }
+                if(streams.count(stream_key) == 0) {
+                    streams[stream_key] = std::unordered_map<std::string, std::pair<std::string, std::string>>();
+                }
+                streams[stream_key][id] = std::make_pair(items[3].strVal, items[4].strVal);
+                sendReply({makeString(items[2].strVal)}, client_fd);
             }
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
             if(client_fd == _master_fd) {
