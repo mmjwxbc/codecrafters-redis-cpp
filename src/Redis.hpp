@@ -379,6 +379,7 @@ public:
                     if(arg == "getack") {
                         sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk(std::to_string(processed_bytes))})}, client_fd);
                     } else if(arg == "ack") {
+                        std::cout << "REPLCONF ACK" << items[2].strVal << std::endl;
                         if(timer_event != nullptr) {
                             if(timer_event->ack_fds.count(client_fd) == 0)  {
                                 int64_t offset = std::stoll(items[2].strVal);
