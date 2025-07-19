@@ -27,6 +27,9 @@
 #include "util.hpp"
 #include <filesystem>
 #include <cstring>
+#include "TimerEvent.hpp"
+#include <sys/epoll.h>
+#include <sys/timerfd.h>
 namespace fs = std::filesystem;
 
 class Redis {
@@ -46,7 +49,9 @@ private:
     std::unordered_map<int, size_t> slave_offsets;
     bool is_master{true};
     int _master_fd{-1};
+    int epoll_fd{-1};
     size_t processed_bytes{0};
+    RedisWaitEvent *timer_event{nullptr};
 
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
@@ -190,6 +195,21 @@ public:
         return sockfd;
     }
 
+    void set_epoll_fd(int epoll_fd) {
+        this->epoll_fd = epoll_fd;
+    }
+
+    int timer_fd() const {
+        if(timer_event != nullptr) {
+            return timer_event->timerfd;
+        }
+        return -1;
+    }
+
+    RedisWaitEvent *get_timer_event() const {
+        return timer_event;
+    }
+
     int master_fd() {
         return _master_fd;
     }
@@ -216,10 +236,10 @@ public:
     void sendReply(const std::vector<RedisReply> &items, const int client_fd) {
         std::string formatted = formatReply(items);
         slave_offsets[client_fd] += formatted.size();
-        if (is_master && slave_offsets.find(client_fd) != slave_offsets.end()) {
-            processed_bytes += formatted.size();
-            metadata["master_repl_offset"] = std::to_string(processed_bytes);
-        }
+        // if (is_master && slave_offsets.find(client_fd) != slave_offsets.end()) {
+        //     processed_bytes += formatted.size();
+        //     metadata["master_repl_offset"] = std::to_string(processed_bytes);
+        // }
         ::send(client_fd, formatted.c_str(), formatted.size(), 0);
     }
 
@@ -289,9 +309,7 @@ public:
                     ok.strVal = "OK";
                     sendReply({ok}, client_fd);
                     for(int fd: slave_fds) {
-                        RedisReply slave_sync_content;
-                        slave_sync_content.elements = reply.elements;
-                        slave_sync_content.type = REPLY_ARRAY;
+                        slave_offsets[fd] += reply.len;
                         sendReply({reply}, fd);
                         // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << " VALUE " << value << std::endl;
                     }
@@ -354,6 +372,21 @@ public:
                     std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
                     if(arg == "getack") {
                         sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"), makeBulk(std::to_string(processed_bytes))})}, client_fd);
+                    } else if(arg == "ack") {
+                        if(timer_event != nullptr) {
+                            if(timer_event->ack_fds.count(client_fd) == 0)  {
+                                int64_t offset = std::stoll(items[2].strVal);
+                                if(offset >= slave_offsets[client_fd]) {
+                                    timer_event->ack_fds.insert(client_fd);
+                                    timer_event->inacks++;
+                                }
+                            }
+                        }
+                        if(timer_event->ack_fds.size() == timer_event->required_acks) {
+                            timer_event->on_finish(client_fd);
+                            delete timer_event;
+                            timer_event = nullptr;
+                        }
                     } else {
                         sendReply({makeString("OK")}, client_fd);
                     }
@@ -375,7 +408,23 @@ public:
                 slave_offsets.insert(std::make_pair(client_fd, 0));
                 // std::cout << "slave client fd = " << client_fd << std::endl;
             } else if(command == "wait") {
-                sendReply({makeInterger(slave_fds.size())}, client_fd);
+                if(items.size() < 3) return;
+                int numreplicas = std::stoi(items[1].strVal);
+                int timeout = std::stoi(items[2].strVal);
+                int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+                itimerspec it = {
+                    .it_interval = {0, 0},
+                    .it_value = {0, timeout}
+                };
+                timerfd_settime(timerfd, 0, &it, nullptr);
+                epoll_event ev;
+                ev.events = EPOLLIN;
+                ev.data.fd = timerfd;
+                timer_event = new RedisWaitEvent(timerfd, client_fd, numreplicas, std::chrono::milliseconds(timeout));
+                timer_event->on_finish = [this](int client_fd) {
+                    sendReply({makeInterger(timer_event->inacks)}, client_fd);
+                };
+                epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);
             }
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
             if(client_fd == _master_fd) {

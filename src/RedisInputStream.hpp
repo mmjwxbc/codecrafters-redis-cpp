@@ -1,7 +1,6 @@
 #pragma once
 #include <string>
 #include <optional>
-#include <iostream>
 class RedisInputStream {
 private:
     std::string& input;

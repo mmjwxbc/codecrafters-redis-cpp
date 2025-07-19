@@ -161,6 +161,7 @@ int main(int argc, char **argv) {
   ev.events = EPOLLIN;
   ev.data.fd = server_fd;
   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_fd, &ev);
+  redis.set_epoll_fd(epoll_fd);
 
   int master_fd = redis.master_fd();
   if (master_fd != -1) {
@@ -195,7 +196,7 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < nfds; ++i) {
       int fd = events[i].data.fd;
-
+      int timerfd = redis.timer_fd();
       if (fd == server_fd) {
         int cfd = accept(server_fd, NULL, NULL);
         // set_non_blocking(cfd);
@@ -209,6 +210,15 @@ int main(int argc, char **argv) {
         client_ev.events = EPOLLIN;
         client_ev.data.fd = cfd;
         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, cfd, &client_ev);
+      } else if(fd == timerfd) {
+         RedisWaitEvent *timer_event = redis.get_timer_event();
+         if(timer_event != nullptr) {
+            timer_event->on_finish(timer_event->client_fd);
+            delete timer_event;
+            timer_event = nullptr;
+         }
+         epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+         close(fd);
       } else {
         bool is_close = false;
         vector<RedisReply> replies;
