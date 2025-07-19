@@ -413,6 +413,7 @@ public:
                 slave_fds.emplace_back(client_fd);
                 slave_offsets.insert(std::make_pair(client_fd, 0));
                 // std::cout << "slave client fd = " << client_fd << std::endl;
+                std::cout << "slave_fds.size() = " << slave_fds.size() << std::endl;
             } else if(command == "wait") {
                 if(items.size() < 3) return;
                 int numreplicas = std::stoi(items[1].strVal);
