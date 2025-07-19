@@ -448,7 +448,7 @@ public:
                 int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
                 itimerspec it = {
                     .it_interval = {0, 0},
-                    .it_value = {0, timeout}
+                    .it_value = {0, timeout * 1000}
                 };
                 timerfd_settime(timerfd, 0, &it, nullptr);
                 epoll_event ev;
