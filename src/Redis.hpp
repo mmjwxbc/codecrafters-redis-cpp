@@ -430,6 +430,7 @@ public:
                 
                 // If no pending operations, return immediately with 0
                 if(!has_pending_operations) {
+                    std::cout << "NO PENDING OPERATIONS" << std::endl;
                     sendReply({makeInterger(0)}, client_fd);
                     return;
                 }
