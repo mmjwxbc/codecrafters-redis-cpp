@@ -494,6 +494,10 @@ public:
 
                 streams[stream_key].emplace_back(std::make_pair(timestamp, sequence));
                 sendReply({makeString(items[2].strVal)}, client_fd);
+                std::cout << "streams[stream_key].size() = " << streams[stream_key].size() << std::endl;
+                if(streams[stream_key].size() > 0) {
+                std::cout << "streams[stream_key].back().first = " << streams[stream_key].back().first << std::endl;
+                }
             }
             end:
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
