@@ -422,6 +422,7 @@ public:
                 // Check if there are any pending write operations
                 bool has_pending_operations = false;
                 for(int fd : slave_fds) {
+                    std::cout << "slave_offsets[fd] = " << slave_offsets[fd] << " processed_bytes = " << processed_bytes << std::endl;
                     if(slave_offsets[fd] < processed_bytes) {
                         has_pending_operations = true;
                         break;
