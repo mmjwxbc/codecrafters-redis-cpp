@@ -391,10 +391,6 @@ public:
                                 }
                             }
                         }
-                        if(timer_event != nullptr && timer_event->ack_fds.size() == timer_event->required_acks) {
-                            timer_event->on_finish(timer_event->client_fd);
-                            clear_timer_event();
-                        }
                     } else {
                         sendReply({makeString("OK")}, client_fd);
                     }
@@ -435,7 +431,7 @@ public:
                 // If no pending operations, return immediately with 0
                 if(!has_pending_operations) {
                     std::cout << "NO PENDING OPERATIONS" << std::endl;
-                    sendReply({makeInterger(0)}, client_fd);
+                    sendReply({makeInterger(slave_fds.size())}, client_fd);
                     return;
                 }
                 
@@ -461,6 +457,9 @@ public:
                 epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);
             }
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
+            if(client_fd == _master_fd) {
+                processed_bytes += reply.len;
+            }
         }
         
     }
