@@ -242,7 +242,6 @@ public:
 
     void sendReply(const std::vector<RedisReply> &items, const int client_fd) {
         std::string formatted = formatReply(items);
-        slave_offsets[client_fd] += formatted.size();
         // if (is_master && slave_offsets.find(client_fd) != slave_offsets.end()) {
         //     processed_bytes += formatted.size();
         //     metadata["master_repl_offset"] = std::to_string(processed_bytes);
