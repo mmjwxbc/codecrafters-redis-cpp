@@ -435,6 +435,7 @@ public:
                 
                 // Send GETACK to all replicas to check their current offset
                 for(int fd : slave_fds) {
+                    std::cout << "SEND GETACK TO " << fd << std::endl;
                     sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("GETACK"), makeBulk("*")})}, fd);
                 }
                 
