@@ -455,6 +455,14 @@ public:
                     sendReply({makeInterger(timer_event->inacks)}, client_fd);
                 };
                 epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);
+            } else if(command == "type") {
+                if(items.size() < 2) return;
+                std::string key = items[1].strVal;
+                if(kvs[cur_db].count(key)) {
+                    sendReply({makeString("string")}, client_fd);
+                } else {
+                    sendReply({makeString("none")}, client_fd);
+                }
             }
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
             if(client_fd == _master_fd) {
