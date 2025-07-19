@@ -490,6 +490,8 @@ public:
                         goto end;
                     }
                 }
+                std::cout << "add stream " << stream_key << " " << timestamp << " " << sequence << std::endl;
+
                 streams[stream_key].emplace_back(std::make_pair(timestamp, sequence));
                 sendReply({makeString(items[2].strVal)}, client_fd);
             }
