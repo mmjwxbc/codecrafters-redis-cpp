@@ -52,7 +52,7 @@ private:
     int epoll_fd{-1};
     size_t processed_bytes{0};
     RedisWaitEvent *timer_event{nullptr};
-    std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> streams;
+    std::unordered_map<std::string, std::vector<RedisStreamEntry>> streams;
 
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
@@ -477,9 +477,9 @@ public:
                     throw std::runtime_error("stream key already exists in kvs");
                 }
                 if(streams.count(stream_key) == 0) {
-                    streams[stream_key] = std::vector<std::pair<std::string, std::string>>();
+                    streams[stream_key] = std::vector<RedisStreamEntry>();
                 } else {
-                    auto last_id = streams[stream_key].back().first;
+                    auto last_id = streams[stream_key].back().id;
                     std::string::size_type pos = last_id.find('-');
                     std::string last_timestamp = last_id.substr(0, pos);
                     std::string last_sequence = last_id.substr(pos + 1);
@@ -492,11 +492,11 @@ public:
                 }
                 std::cout << "add stream " << stream_key << " " << timestamp << " " << sequence << std::endl;
 
-                streams[stream_key].emplace_back(std::make_pair(timestamp, sequence));
-                sendReply({makeString(items[2].strVal)}, client_fd);
+                streams[stream_key].emplace_back(RedisStreamEntry(id, items[3].strVal, items[4].strVal));
+                sendReply({makeString(id)}, client_fd);
                 std::cout << "streams[stream_key].size() = " << streams[stream_key].size() << std::endl;
                 if(streams[stream_key].size() > 0) {
-                std::cout << "streams[stream_key].back().first = " << streams[stream_key].back().first << std::endl;
+                std::cout << "streams[stream_key].back().id = " << streams[stream_key].back().id << std::endl;
                 }
             }
             end:
