@@ -848,12 +848,14 @@ private:
       }
     } else if(command == "lpop") {
       int sz = 1;
+      std::string key = items[1].strVal;
       if(items.size() == 3) {
         sz = std::stoi(items[2].strVal);
       }
-      std::string key = items[1].strVal;
-
-      if(key_lists.find(key) != key_lists.end()) {
+      if(sz == 1) {
+        server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
+        key_lists[key].pop_front();
+      } else if(key_lists.find(key) != key_lists.end()) {
         std::vector<RedisReply> replies;
         for(int i = 0; i < sz && i < key_lists[key].size(); i++) {
           replies.emplace_back(makeBulk(key_lists[key].front()));
@@ -863,8 +865,7 @@ private:
         // server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
         // key_lists[key].pop_front();
       } else {
-        server_replies.emplace_back(makeArray({}), client_fd);
-        // server_replies.emplace_back(makeBulk(""), client_fd);
+        server_replies.emplace_back(makeBulk(""), client_fd);
       }
     } else if(command == "blpop") {
       std::string key = items[1].strVal;
