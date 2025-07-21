@@ -319,12 +319,12 @@ public:
       }
       std::cout << "*****" << std::endl;
       if(multi_queue.find(client_fd) != multi_queue.end()) {
+        std::cout << "in multi mode" << std::endl;
         multi_queue[client_fd].emplace_back(reply);
         sendReply({makeString("QUEUED")}, client_fd);
       } else if (command == "echo") {
         items.erase(items.begin());
         sendReply(items, client_fd);
-
       } else if (command == "ping" && client_fd != _master_fd) {
         RedisReply pong;
         pong.type = REPLY_STRING;
@@ -661,7 +661,7 @@ public:
             kvs[cur_db][key] = std::to_string(1);
             sendReply({makeInterger(1)}, client_fd);
         }
-      } else {
+      } else if(command == "multi") {
         multi_queue[client_fd] = {};
         sendReply({makeString("OK")}, client_fd);
       }
