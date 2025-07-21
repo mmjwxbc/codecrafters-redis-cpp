@@ -56,6 +56,7 @@ private:
   RedisXreadBlockEvent *xread_block_timer_event{nullptr};
   std::unordered_map<std::string, SimpleStream> streams;
   std::unordered_map<int, std::vector<RedisReply>> multi_queue;
+  std::unordered_map<std::string, std::vector<std::string>> key_lists;
 
 public:
   Redis(std::string dir, std::string dbfilename, int cur_db = 0,
@@ -785,6 +786,11 @@ private:
       multi_queue[client_fd] = {};
       // sendReply({makeString("OK")}, client_fd);
       server_replies.emplace_back(makeString("OK"), client_fd);
+    } else if(command == "rpush") {
+      std::string key = items[1].strVal;
+      std::string value = items[2].strVal;
+      key_lists[key].emplace_back(std::move(value));
+      server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
     }
   end:
     // std::cout << "processed_bytes = " << processed_bytes << std::endl;
