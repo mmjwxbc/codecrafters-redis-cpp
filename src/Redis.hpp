@@ -638,7 +638,7 @@ public:
         } else if(items[1].strVal == "block") {
             std::string stream_key = items[4].strVal;
             std::string start_id = items[5].strVal;
-            if(streams[stream_key].findExistId(start_id)) {
+            if(not streams[stream_key].findExistId(start_id)) {
                 int timeout = std::stoi(items[2].strVal);
                 int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
                 itimerspec it = {
