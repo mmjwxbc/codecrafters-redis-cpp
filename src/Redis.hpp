@@ -326,7 +326,10 @@ public:
         sendReply(items, client_fd);
 
       } else if (command == "ping" && client_fd != _master_fd) {
-        sendReply({makeString("PONG")}, client_fd);
+        RedisReply pong;
+        pong.type = REPLY_STRING;
+        pong.strVal = "PONG";
+        sendReply({pong}, client_fd);
       } else if (command == "set") {
         if (items.size() < 3)
           return;
@@ -367,9 +370,10 @@ public:
         }
         RedisReply result;
         if (kvs[cur_db].count(key)) {
-          result = makeString(kvs[cur_db][key]);
+          result.type = REPLY_BULK;
+          result.strVal = kvs[cur_db][key];
         } else {
-          result = makeNIL();
+          result.type = REPLY_NIL;
         }
         sendReply({result}, client_fd);
       } else if (command == "config") {
