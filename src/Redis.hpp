@@ -31,6 +31,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <deque>
 namespace fs = std::filesystem;
 
 class Redis {
@@ -56,7 +57,7 @@ private:
   RedisXreadBlockEvent *xread_block_timer_event{nullptr};
   std::unordered_map<std::string, SimpleStream> streams;
   std::unordered_map<int, std::vector<RedisReply>> multi_queue;
-  std::unordered_map<std::string, std::vector<std::string>> key_lists;
+  std::unordered_map<std::string, std::deque<std::string>> key_lists;
 
 public:
   Redis(std::string dir, std::string dbfilename, int cur_db = 0,
@@ -816,9 +817,33 @@ private:
       std::string key = items[1].strVal;
       for(int i = 2; i < items.size(); i++) {
         std::string value = items[i].strVal;
-        key_lists[key].insert(key_lists[key].begin(), std::move(value));
+        key_lists[key].emplace_front(std::move(value));
       }
       server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
+    } else if(command == "llen") {
+      std::string key = items[1].strVal;
+      if(key_lists.find(key) != key_lists.end()) {
+        server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
+      } else {
+        server_replies.emplace_back(makeInterger(0), client_fd);
+      }
+    } else if(command == "lpop") {
+      int sz = 1;
+      if(items.size() == 3) {
+        sz = std::stoi(items[2].strVal);
+      }
+      std::string key = items[2].strVal;
+
+      if(key_lists.find(key) != key_lists.end()) {
+        std::vector<RedisReply> replies;
+        for(int i = 0; i < sz && i < key_lists[key].size(); i++) {
+          server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
+          key_lists[key].pop_front();
+        }
+        server_replies.emplace_back(replies, client_fd);
+      } else {
+        server_replies.emplace_back(makeArray({}), client_fd);
+      }
     }
   end:
     // std::cout << "processed_bytes = " << processed_bytes << std::endl;
