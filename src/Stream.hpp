@@ -146,7 +146,7 @@ public:
         for (const auto& [field, value] : field_values) {
             entry.addField(field, value);
         }
-        entry_key_value[lastMillisecondsTime].emplace_back(std::move(entry));   
+        entry_key_value[id].emplace_back(std::move(entry));   
     }
 
     std::vector<RedisStreamEntry> xrange(std::string start, std::string end, bool is_start, bool is_end) {

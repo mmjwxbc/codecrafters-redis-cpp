@@ -589,6 +589,14 @@ public:
         std::string stream_key = items[1].strVal;
         std::string start = items[2].strVal;
         std::string end = items[3].strVal;
+        if(start.find("-") == std::string::npos) {
+            start += "-0";
+        }
+        if(end.find("-") == std::string::npos) {
+            uint64_t end_no = std::stoll(end);
+            end_no++;
+            end = std::to_string(end_no) + "-0";
+        }
         bool is_start = (start == "-") ? true : false;
         bool is_end = (end == "+") ? true : false;
         auto results = streams[stream_key].xrange(start, end, is_start, is_end);
