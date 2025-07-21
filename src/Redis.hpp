@@ -641,6 +641,9 @@ public:
         } else if(items[1].strVal == "block") {
             std::string stream_key = items[4].strVal;
             std::string start_id = items[5].strVal;
+            if(start_id == "$") {
+                start_id = streams[stream_key].getLastMillisecondsTime() + "-" + streams[stream_key].getLastSeqno();
+            }
             if(not streams[stream_key].findUpperId(start_id)) {
                 int timeout = std::stoi(items[2].strVal);
                 int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
