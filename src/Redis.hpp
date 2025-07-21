@@ -53,7 +53,7 @@ private:
   int epoll_fd{-1};
   size_t processed_bytes{0};
   RedisWaitEvent *timer_event{nullptr};
-  std::unordered_map<std::string, Stream> streams;
+  std::unordered_map<std::string, SimpleStream> streams;
 
 public:
   Redis(std::string dir, std::string dbfilename, int cur_db = 0,
@@ -509,8 +509,6 @@ public:
           return;
         std::string stream_key = items[1].strVal;
         std::string id = items[2].strVal;
-        std::string key = items[3].strVal;
-        std::string value = items[4].strVal;
         if (kvs[cur_db].count(stream_key) != 0) {
           throw std::runtime_error("stream key already exists in kvs");
         }
@@ -581,8 +579,32 @@ public:
             id += std::to_string(next_seqno);
           }
         }
-        streams[stream_key].insert(id, key, value);
+        std::vector<std::pair<std::string, std::string>> key_value;
+        for(int i = 3; i < items.size(); i += 2) {
+            key_value.emplace_back(std::make_pair(items[i].strVal, items[i + 1].strVal));
+        }
+        streams[stream_key].insert(id, key_value);
         sendReply({makeBulk(id)}, client_fd);
+      } else if(command == "xrange") {
+        std::string stream_key = items[1].strVal;
+        std::string start = items[2].strVal;
+        std::string end = items[3].strVal;
+        bool is_start = (start == "-") ? true : false;
+        bool is_end = (end == "+") ? true : false;
+        auto results = streams[stream_key].xrange(start, end, is_start, is_end);
+        std::vector<RedisReply> replies;
+        for(auto result : results) {
+            std::vector<RedisReply> reply;
+            reply.emplace_back(makeString(result.entry_id));
+            std::vector<RedisReply> entries;
+            for (const auto& [field, value] : result.fields) {
+                entries.emplace_back(makeString(field));
+                entries.emplace_back(makeString(value));
+            }
+            reply.emplace_back(entries);
+            replies.emplace_back(reply);
+        }
+        sendReply({makeArray(replies)}, client_fd);
       }
     end:
       // std::cout << "processed_bytes = " << processed_bytes << std::endl;

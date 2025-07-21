@@ -19,11 +19,3 @@ struct RedisReply {
     std::vector<RedisReply> elements;
     size_t len;
 };
-
-struct RedisStreamEntry {
-    std::string id;
-    std::string key;
-    std::string value;
-    RedisStreamEntry(const std::string &id_, const std::string &key_, const std::string &value_)
-        : id(id_), key(key_), value(value_) {}
-};
