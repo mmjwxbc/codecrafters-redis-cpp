@@ -800,7 +800,9 @@ private:
         int end = std::stoi(items[3].strVal);
         if(start < 0) start += key_lists[key].size();
         if(end < 0) end += key_lists[key].size();
-        end = std::min(end, static_cast<int>(key_lists[key].size()) - 1);
+        start = std::max(start, 0);
+        end = std::min(end, static_cast<int>(key_lists[key].size() - 1));
+
         std::vector<RedisReply> replies;
         for(; start <= end; start++) {
           replies.emplace_back(makeBulk(key_lists[key][start]));
@@ -810,6 +812,13 @@ private:
       } else {
         server_replies.emplace_back(makeArray({}), client_fd);
       }
+    } else if(command == "lpush") {
+      std::string key = items[1].strVal;
+      for(int i = 2; i < items.size(); i++) {
+        std::string value = items[i].strVal;
+        key_lists[key].insert(key_lists[key].begin(), std::move(value));
+      }
+      server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
     }
   end:
     // std::cout << "processed_bytes = " << processed_bytes << std::endl;
