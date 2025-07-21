@@ -784,6 +784,7 @@ private:
     if (client_fd == _master_fd) {
       processed_bytes += reply.len;
     }
+    return server_replies;
   }
 
   std::string formatReply(const RedisReply &r) {
