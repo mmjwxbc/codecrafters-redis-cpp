@@ -851,7 +851,7 @@ private:
       if(items.size() == 3) {
         sz = std::stoi(items[2].strVal);
       }
-      std::string key = items[2].strVal;
+      std::string key = items[1].strVal;
 
       if(key_lists.find(key) != key_lists.end()) {
         // std::vector<RedisReply> replies;
