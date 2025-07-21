@@ -318,13 +318,14 @@ public:
         std::cout << item.strVal << " " << std::endl;
       }
       std::cout << "*****" << std::endl;
-      if(multi_queue.find(client_fd) != multi_queue.end()) {
+      if(multi_queue.find(client_fd) != multi_queue.end() && command != "exec") {
         std::cout << "in multi mode" << std::endl;
         multi_queue[client_fd].emplace_back(reply);
         sendReply({makeString("QUEUED")}, client_fd);
       } else if(command == "exec") {
         if(multi_queue.find(client_fd) != multi_queue.end()) {
             if(multi_queue[client_fd].empty()) {
+                std::cout << "multi queue empty" << std::endl;
                 sendReply({makeArray({})}, client_fd);
             } else {
                 process_command(multi_queue[client_fd], client_fd);
