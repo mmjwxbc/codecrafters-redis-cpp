@@ -151,7 +151,8 @@ public:
 
     std::vector<RedisStreamEntry> xrange(std::string start, std::string end, bool is_start, bool is_end) {
         std::vector<RedisStreamEntry> result;
-
+        std::cout << "start = " << start << std::endl;
+        std::cout << "end = " << end << std::endl;
         auto beginIt = entry_key_value.lower_bound(start);
         auto endIt = entry_key_value.upper_bound(end);
         if(is_start) beginIt = entry_key_value.begin();
