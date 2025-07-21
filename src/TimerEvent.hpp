@@ -56,4 +56,26 @@ struct RedisXreadBlockEvent {
           {}
 };
 
+struct RedisBlpopEvent {
+    int timerfd;
+    int client_fd;
+    std::string list_key;
+
+
+    std::chrono::steady_clock::time_point expire_time;
+
+    std::function<void(int)> on_finish;
+
+    RedisBlpopEvent(int timerfd_,
+                   int client_fd_,
+                   std::string list_key,
+                   std::chrono::milliseconds timeout
+                  )
+        : timerfd(timerfd_),
+          client_fd(client_fd_),
+          list_key(list_key),
+          expire_time(std::chrono::steady_clock::now() + timeout)
+          {}
+};
+
 #endif // REDIS_WAIT_EVENT_HPP

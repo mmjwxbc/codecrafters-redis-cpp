@@ -55,6 +55,7 @@ private:
   size_t processed_bytes{0};
   RedisWaitEvent *wait_timer_event{nullptr};
   RedisXreadBlockEvent *xread_block_timer_event{nullptr};
+  RedisBlpopEvent *blpop_timer_event{nullptr};
   std::unordered_map<std::string, SimpleStream> streams;
   std::unordered_map<int, std::vector<RedisReply>> multi_queue;
   std::unordered_map<std::string, std::deque<std::string>> key_lists;
@@ -233,10 +234,19 @@ public:
     return -1;
   }
 
+  int blpop_event_timer_fd() const {
+    if (blpop_timer_event != nullptr) {
+      return blpop_timer_event->timerfd;
+    }
+    return -1;
+  }
+
   RedisWaitEvent *get_wait_timer_event() const { return wait_timer_event; }
   RedisXreadBlockEvent *get_xread_block_timer_event() const {
     return xread_block_timer_event;
   }
+
+  RedisBlpopEvent *get_blpop_timer_event() const { return blpop_timer_event; }
 
   void clear_wait_timer_event() {
     if (wait_timer_event != nullptr) {
@@ -249,6 +259,13 @@ public:
     if (xread_block_timer_event != nullptr) {
       delete xread_block_timer_event;
       xread_block_timer_event = nullptr;
+    }
+  }
+
+  void clear_blpop_timer_event() {
+    if (blpop_timer_event != nullptr) {
+      delete blpop_timer_event;
+      blpop_timer_event = nullptr;
     }
   }
 
@@ -793,6 +810,7 @@ private:
         std::string value = items[i].strVal;
         key_lists[key].emplace_back(std::move(value));
       }
+      check_blpop_event(key, client_fd);
       server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
     } else if(command == "lrange") {
       std::string key = items[1].strVal;
@@ -819,6 +837,7 @@ private:
         std::string value = items[i].strVal;
         key_lists[key].emplace_front(std::move(value));
       }
+      check_blpop_event(key, client_fd);
       server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
     } else if(command == "llen") {
       std::string key = items[1].strVal;
@@ -835,15 +854,43 @@ private:
       std::string key = items[2].strVal;
 
       if(key_lists.find(key) != key_lists.end()) {
-        std::vector<RedisReply> replies;
-        for(int i = 0; i < sz && i < key_lists[key].size(); i++) {
-          server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
-          key_lists[key].pop_front();
-        }
-        server_replies.emplace_back(makeArray(replies), client_fd);
+        // std::vector<RedisReply> replies;
+        // for(int i = 0; i < sz && i < key_lists[key].size(); i++) {
+        //   replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
+        //   key_lists[key].pop_front();
+        // }
+        // server_replies.emplace_back(makeArray(replies), client_fd);
+        server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
+        key_lists[key].pop_front();
       } else {
-        server_replies.emplace_back(makeArray({}), client_fd);
+        // server_replies.emplace_back(makeArray({}), client_fd);
+        server_replies.emplace_back(makeBulk(""), client_fd);
       }
+    } else if(command == "blpop") {
+      std::string key = items[1].strVal;
+      long timeout = std::stoll(items[2].strVal);
+      if(timeout == 0) {
+        blpop_timer_event =
+              new RedisBlpopEvent(-1, client_fd, key,
+                                       std::chrono::milliseconds(timeout));
+      } else {
+          int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+          itimerspec it = {
+              .it_interval = {0, 0},
+              .it_value = {timeout / 1000, (timeout % 1000) * 1000000}};
+          timerfd_settime(timerfd, 0, &it, nullptr);
+          epoll_event ev;
+          ev.events = EPOLLIN;
+          ev.data.fd = timerfd;
+          blpop_timer_event =
+              new RedisBlpopEvent(timerfd, client_fd, key,
+                                       std::chrono::milliseconds(timeout));
+          xread_block_timer_event->on_finish = [this](int client_fd) {
+            sendReply({makeNIL()}, client_fd);
+          };
+          epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);
+      }
+
     }
   end:
     // std::cout << "processed_bytes = " << processed_bytes << std::endl;
@@ -880,6 +927,19 @@ private:
     }
     return oss.str();
   }
+
+  void check_blpop_event(std::string key, const int client_fd) {
+    if(blpop_timer_event == nullptr) {
+      return;
+    }
+    if(blpop_timer_event->list_key == key) {
+      std::vector<RedisReply> replies;
+      // server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
+      sendReply(makeBulk(key_lists[key].front()), client_fd);
+      key_lists[key].pop_front();
+    }
+  }
+   
 
   RedisReply makeBulk(const std::string &s) {
     RedisReply r;
