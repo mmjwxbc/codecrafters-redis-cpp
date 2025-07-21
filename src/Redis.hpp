@@ -30,6 +30,7 @@
 #include "TimerEvent.hpp"
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
+#include "Stream.hpp"
 namespace fs = std::filesystem;
 
 class Redis {
@@ -52,11 +53,10 @@ private:
     int epoll_fd{-1};
     size_t processed_bytes{0};
     RedisWaitEvent *timer_event{nullptr};
-    std::unordered_map<std::string, std::vector<RedisStreamEntry>> streams;
-
+    Stream stream;
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
-        : sockfd(-1), host(host), port(port), is_master(is_master), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16){
+        : sockfd(-1), host(host), port(port), is_master(is_master), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16), stream() {
         if(!dir.empty() && !dbfilename.empty()) {
             fs::path filepath = fs::path(dir) / dbfilename;
             if(fs::exists(filepath)) {
@@ -461,7 +461,7 @@ public:
                 std::string key = items[1].strVal;
                 if(kvs[cur_db].count(key)) {
                     sendReply({makeString("string")}, client_fd);
-                } else if(streams.count(key) != 0) {
+                } else if(not stream.find(key).empty()) {
                     sendReply({makeString("stream")}, client_fd);
                 } else {
                     sendReply({makeString("none")}, client_fd);
@@ -472,34 +472,54 @@ public:
                 std::string id = items[2].strVal;
                 std::string::size_type pos = id.find('-');
                 std::string timestamp = id.substr(0, pos);
-                std::string sequence = id.substr(pos + 1);
+                std::string seqno = id.substr(pos + 1);
                 if(kvs[cur_db].count(stream_key) != 0) {
                     throw std::runtime_error("stream key already exists in kvs");
                 }
-                if(sequence == "0" && timestamp == "0") {
+                if(seqno == "0" && timestamp == "0") {
                     sendReply({makeError("ERR The ID specified in XADD must be greater than 0-0")}, client_fd);
                 }
-                if(streams.count(stream_key) == 0) {
-                    streams[stream_key] = std::vector<RedisStreamEntry>();
-                } else {
-                    auto last_id = streams[stream_key].back().id;
-                    std::string::size_type pos = last_id.find('-');
-                    std::string last_timestamp = last_id.substr(0, pos);
-                    std::string last_sequence = last_id.substr(pos + 1);
-                    std::cout << "last_timestamp = " << last_timestamp << " last_sequence = " << last_sequence << std::endl;
-                    std::cout << "timestamp = " << timestamp << " sequence = " << sequence << std::endl;
-                    if(timestamp < last_timestamp || (timestamp == last_timestamp && sequence <= last_sequence)) {
-                        sendReply({makeError("ERR The ID specified in XADD is equal or smaller than the target stream top item")}, client_fd);
-                        goto end;
-                    }
-                }
-                std::cout << "add stream " << stream_key << " " << timestamp << " " << sequence << std::endl;
+                // if(streams.count(stream_key) == 0) {
+                //     streams[stream_key] = std::vector<RedisStreamEntry>();
+                // } else {
+                //     auto last_id = streams[stream_key].back().id;
+                //     std::string::size_type pos = last_id.find('-');
+                //     std::string last_timestamp = last_id.substr(0, pos);
+                //     std::string last_sequence = last_id.substr(pos + 1);
+                //     // std::cout << "last_timestamp = " << last_timestamp << " last_sequence = " << last_sequence << std::endl;
+                //     // std::cout << "timestamp = " << timestamp << " sequence = " << sequence << std::endl;
+                //     if(timestamp < last_timestamp || (timestamp == last_timestamp && sequence <= last_sequence)) {
+                //         sendReply({makeError("ERR The ID specified in XADD is equal or smaller than the target stream top item")}, client_fd);
+                //         goto end;
+                //     }
+                // }
+                // // std::cout << "add stream " << stream_key << " " << timestamp << " " << sequence << std::endl;
 
-                streams[stream_key].emplace_back(RedisStreamEntry(id, items[3].strVal, items[4].strVal));
-                sendReply({makeString(id)}, client_fd);
-                std::cout << "streams[stream_key].size() = " << streams[stream_key].size() << std::endl;
-                if(streams[stream_key].size() > 0) {
-                std::cout << "streams[stream_key].back().id = " << streams[stream_key].back().id << std::endl;
+                // streams[stream_key].emplace_back(RedisStreamEntry(id, items[3].strVal, items[4].strVal));
+                // sendReply({makeString(id)}, client_fd);
+                // std::cout << "streams[stream_key].size() = " << streams[stream_key].size() << std::endl;
+                // if(streams[stream_key].size() > 0) {
+                // std::cout << "streams[stream_key].back().id = " << streams[stream_key].back().id << std::endl;
+                // }
+                std::string last_timestamp = stream.getLastMillisecondsTime();
+                std::string last_seqno = stream.getLastSeqno();
+                if(timestamp < last_timestamp || (timestamp == last_timestamp && seqno <= last_seqno)) {
+                    sendReply({makeError("ERR The ID specified in XADD is equal or smaller than the target stream top item")}, client_fd);
+                    goto end;
+                }
+                std::string key = items[3].strVal;
+                std::string value = items[4].strVal;
+                if(timestamp == last_timestamp) {
+                    if(seqno != "*") {
+                        stream.insert(id, key, value);
+                    } else {
+                        int next_seqno = std::stoi(last_seqno) + 1;
+                        id.pop_back();
+                        id += std::to_string(next_seqno);
+                        stream.insert(id, key, value);
+                    }
+                } else {
+                    stream.insert(id, key, value);
                 }
             }
             end:

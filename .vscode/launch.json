@@ -6,6 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/server",
+            // "program": "${workspaceFolder}/test",
             "args": ["--port", "6380", "--replicaof", "localhost 6379"],
             // "args": ["--port", "7379"],
             "stopAtEntry": false,
