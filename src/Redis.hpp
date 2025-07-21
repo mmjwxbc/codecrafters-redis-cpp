@@ -55,6 +55,7 @@ private:
   RedisWaitEvent *wait_timer_event{nullptr};
   RedisXreadBlockEvent *xread_block_timer_event{nullptr};
   std::unordered_map<std::string, SimpleStream> streams;
+  std::unordered_map<int, std::vector<RedisReply>> multi_queue;
 
 public:
   Redis(std::string dir, std::string dbfilename, int cur_db = 0,
@@ -317,15 +318,15 @@ public:
         std::cout << item.strVal << " " << std::endl;
       }
       std::cout << "*****" << std::endl;
-      if (command == "echo") {
+      if(multi_queue.find(client_fd) != multi_queue.end()) {
+        multi_queue[client_fd].emplace_back(reply);
+        sendReply({makeString("QUEUED")}, client_fd);
+      } else if (command == "echo") {
         items.erase(items.begin());
         sendReply(items, client_fd);
 
       } else if (command == "ping" && client_fd != _master_fd) {
-        RedisReply pong;
-        pong.type = REPLY_STRING;
-        pong.strVal = "PONG";
-        sendReply({pong}, client_fd);
+        sendReply({makeString("PONG")}, client_fd);
       } else if (command == "set") {
         if (items.size() < 3)
           return;
@@ -366,10 +367,9 @@ public:
         }
         RedisReply result;
         if (kvs[cur_db].count(key)) {
-          result.type = REPLY_BULK;
-          result.strVal = kvs[cur_db][key];
+          result = makeString(kvs[cur_db][key]);
         } else {
-          result.type = REPLY_NIL;
+          result = makeNIL();
         }
         sendReply({result}, client_fd);
       } else if (command == "config") {
@@ -611,26 +611,6 @@ public:
             std::string stream_key = items[key_index].strVal;
             std::string start_id = items[id_index].strVal;
             std::vector<RedisReply> single_stream_reply = AssembleStreamResults(client_fd, stream_key, start_id);
-            // auto results = streams[stream_key].xread(start_id);
-            // std::vector<RedisReply> single_stream_reply;
-            // single_stream_reply.emplace_back(makeString(stream_key));
-
-            // std::vector<RedisReply> entries_array;
-            // for (const auto &result : results) {
-            //   std::vector<RedisReply> entry_reply;
-            //   entry_reply.emplace_back(makeString(result.entry_id));
-
-            //   std::vector<RedisReply> fields_array;
-            //   for (const auto &[field, value] : result.fields) {
-            //     fields_array.emplace_back(makeString(field));
-            //     fields_array.emplace_back(makeString(value));
-            //   }
-
-            //   entry_reply.emplace_back(makeArray(fields_array));
-            //   entries_array.emplace_back(makeArray(entry_reply));
-            // }
-
-            // single_stream_reply.emplace_back(makeArray(entries_array));
             streams_replies.emplace_back(makeArray(single_stream_reply));
           }
 
@@ -677,6 +657,9 @@ public:
             kvs[cur_db][key] = std::to_string(1);
             sendReply({makeInterger(1)}, client_fd);
         }
+      } else {
+        multi_queue[client_fd] = {};
+        sendReply({makeString("OK")}, client_fd);
       }
     end:
       // std::cout << "processed_bytes = " << processed_bytes << std::endl;
