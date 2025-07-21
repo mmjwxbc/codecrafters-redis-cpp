@@ -851,13 +851,14 @@ private:
       std::string key = items[1].strVal;
       if(items.size() == 3) {
         sz = std::stoi(items[2].strVal);
+        sz = std::min(sz, static_cast<int>(key_lists[key].size()));
       }
       if(sz == 1) {
         server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
         key_lists[key].pop_front();
       } else if(key_lists.find(key) != key_lists.end()) {
         std::vector<RedisReply> replies;
-        for(int i = 0; i < sz && i < key_lists[key].size(); i++) {
+        for(int i = 0; i < sz; i++) {
           replies.emplace_back(makeBulk(key_lists[key].front()));
           key_lists[key].pop_front();
         }
