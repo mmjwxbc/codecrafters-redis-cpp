@@ -179,6 +179,10 @@ public:
         return result;
     }
 
+    bool findExistId(std::string stream_id) {
+        return entry_key_value.find(stream_id) != entry_key_value.end();
+    }
+
     SimpleStream() : lastMillisecondsTime("0"), lastSeqno("0") {}
 
 
