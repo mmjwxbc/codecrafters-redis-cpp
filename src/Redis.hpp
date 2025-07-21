@@ -665,6 +665,13 @@ public:
                 sendReply({makeArray({makeArray(single_stream_reply)})}, client_fd);
             }
         }
+      } else if(command == "incr") {
+        std::string key = items[1].strVal;
+        if(kvs[cur_db].find(key) != kvs[cur_db].end()) {
+            int val = std::stoi(kvs[cur_db][key]);
+            val++;
+            kvs[cur_db][key] = std::to_string(val);
+        }
       }
     end:
       // std::cout << "processed_bytes = " << processed_bytes << std::endl;
