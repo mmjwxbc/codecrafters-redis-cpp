@@ -379,11 +379,18 @@ private:
     }
     std::cout << "*****" << std::endl;
     std::vector<RedisServerReply> server_replies;
-    if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec") {
+    if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" && command != "discard") {
       std::cout << "in multi mode" << std::endl;
       multi_queue[client_fd].emplace_back(reply);
     //   sendReply({makeString("QUEUED")}, client_fd);
     server_replies.emplace_back(makeString("QUEUED"), client_fd);
+    } else if(command == "discard") {
+      if (multi_queue.find(client_fd) != multi_queue.end()) {
+        multi_queue.erase(client_fd);
+        server_replies.emplace_back(makeString("OK"), client_fd);
+      } else {
+        server_replies.emplace_back(makeString("ERR DISCARD without MULTI"), client_fd);
+      }
     } else if (command == "exec") {
       if (multi_queue.find(client_fd) != multi_queue.end()) {
         if (multi_queue[client_fd].empty()) {
