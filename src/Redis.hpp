@@ -824,9 +824,9 @@ private:
         std::string value = items[i].strVal;
         key_lists[key].emplace_back(std::move(value));
       }
-      check_blpop_event(key);
       server_replies.emplace_back(makeInterger(key_lists[key].size()),
                                   client_fd);
+      check_blpop_event(key);
     } else if (command == "lrange") {
       std::string key = items[1].strVal;
       if (key_lists.find(key) != key_lists.end()) {
@@ -854,9 +854,9 @@ private:
         std::string value = items[i].strVal;
         key_lists[key].emplace_front(std::move(value));
       }
-      check_blpop_event(key);
       server_replies.emplace_back(makeInterger(key_lists[key].size()),
                                   client_fd);
+      check_blpop_event(key);
     } else if (command == "llen") {
       std::string key = items[1].strVal;
       if (key_lists.find(key) != key_lists.end()) {
