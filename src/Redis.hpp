@@ -324,8 +324,13 @@ public:
         sendReply({makeString("QUEUED")}, client_fd);
       } else if(command == "exec") {
         if(multi_queue.find(client_fd) != multi_queue.end()) {
-            process_command(multi_queue[client_fd], client_fd);
-            multi_queue.erase(client_fd);
+            if(multi_queue[client_fd].empty()) {
+                sendReply({makeArray({})}, client_fd);
+            } else {
+                process_command(multi_queue[client_fd], client_fd);
+                multi_queue.erase(client_fd);                
+            }
+
         } else {
             sendReply({makeError("ERR EXEC without MULTI")}, client_fd);
         }
