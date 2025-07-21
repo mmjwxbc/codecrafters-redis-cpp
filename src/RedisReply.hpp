@@ -19,3 +19,11 @@ struct RedisReply {
     std::vector<RedisReply> elements;
     size_t len;
 };
+
+
+struct RedisServerReply {
+    RedisReply reply;
+    int client_fd;
+
+    RedisServerReply(RedisReply reply, int client_fd) : reply(std::move(reply)), client_fd(client_fd) {} 
+};
