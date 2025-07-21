@@ -158,6 +158,7 @@ public:
         if(is_end) endIt = entry_key_value.end();
 
         for (auto it = beginIt; it != endIt; ++it) {
+            std::cout << "it timestamp = " << it->first << std::endl;
             result.insert(result.end(), it->second.begin(), it->second.end());
         }
         std::cout << "xrange size = " << result.size() << std::endl;
