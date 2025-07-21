@@ -5,20 +5,18 @@
 #include <chrono>
 #include <functional>
 #include <unordered_set>
+#include <string>
+
 struct RedisWaitEvent {
     int timerfd;
-    // 客户端的 fd，执行 WAIT 命令的客户端
     int client_fd;
 
-    // 要等待的副本数量
     int required_acks;
 
     int inacks;
     std::unordered_set<int> ack_fds; 
-    // 超时时间点（绝对时间，用于超时检查）
     std::chrono::steady_clock::time_point expire_time;
 
-    // 完成时调用（如向客户端返回结果）
     std::function<void(int)> on_finish;
 
     RedisWaitEvent(int timerfd_,
@@ -31,6 +29,31 @@ struct RedisWaitEvent {
           required_acks(required_acks_),
           expire_time(std::chrono::steady_clock::now() + timeout),
           inacks(0) {}
+};
+
+struct RedisXreadBlockEvent {
+    int timerfd;
+    int client_fd;
+    std::string stream_key;
+    std::string id;
+
+
+    std::chrono::steady_clock::time_point expire_time;
+
+    std::function<void(int)> on_finish;
+
+    RedisXreadBlockEvent(int timerfd_,
+                   int client_fd_,
+                   std::string stream_key,
+                   std::string id,
+                   std::chrono::milliseconds timeout
+                  )
+        : timerfd(timerfd_),
+          client_fd(client_fd_),
+          stream_key(stream_key),
+          id(id),
+          expire_time(std::chrono::steady_clock::now() + timeout)
+          {}
 };
 
 #endif // REDIS_WAIT_EVENT_HPP
