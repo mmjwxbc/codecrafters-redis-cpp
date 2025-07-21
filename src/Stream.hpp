@@ -166,6 +166,19 @@ public:
         return result;
     }
 
+    std::vector<RedisStreamEntry> xread(std::string start) {
+        std::vector<RedisStreamEntry> result;
+        auto beginIt = entry_key_value.upper_bound(start);
+
+
+        for (auto it = beginIt; it != entry_key_value.end(); ++it) {
+            std::cout << "it timestamp = " << it->first << std::endl;
+            result.insert(result.end(), it->second.begin(), it->second.end());
+        }
+        std::cout << "xrange size = " << result.size() << std::endl;
+        return result;
+    }
+
     SimpleStream() : lastMillisecondsTime("0"), lastSeqno("0") {}
 
 

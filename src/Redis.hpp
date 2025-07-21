@@ -580,40 +580,60 @@ public:
           }
         }
         std::vector<std::pair<std::string, std::string>> key_value;
-        for(int i = 3; i < items.size(); i += 2) {
-            key_value.emplace_back(std::make_pair(items[i].strVal, items[i + 1].strVal));
+        for (int i = 3; i < items.size(); i += 2) {
+          key_value.emplace_back(
+              std::make_pair(items[i].strVal, items[i + 1].strVal));
         }
         streams[stream_key].insert(id, key_value);
         sendReply({makeBulk(id)}, client_fd);
-      } else if(command == "xrange") {
+      } else if (command == "xrange") {
         std::string stream_key = items[1].strVal;
         std::string start = items[2].strVal;
         std::string end = items[3].strVal;
         bool is_start = (start == "-") ? true : false;
         bool is_end = (end == "+") ? true : false;
-        if(start.find("-") == std::string::npos) {
-            start += "-0";
+        if (start.find("-") == std::string::npos) {
+          start += "-0";
         }
-        if(not is_end && end.find("-") == std::string::npos) {
-            uint64_t end_no = std::stoll(end);
-            end_no++;
-            end = std::to_string(end_no) + "-0";
+        if (not is_end && end.find("-") == std::string::npos) {
+          uint64_t end_no = std::stoll(end);
+          end_no++;
+          end = std::to_string(end_no) + "-0";
         }
 
         auto results = streams[stream_key].xrange(start, end, is_start, is_end);
         std::vector<RedisReply> replies;
-        for(auto result : results) {
+        for (auto result : results) {
+          std::vector<RedisReply> reply;
+          reply.emplace_back(makeString(result.entry_id));
+          std::vector<RedisReply> entries;
+          for (const auto &[field, value] : result.fields) {
+            entries.emplace_back(makeString(field));
+            entries.emplace_back(makeString(value));
+          }
+          reply.emplace_back(makeArray(entries));
+          replies.emplace_back(makeArray(reply));
+        }
+        sendReply({makeArray(replies)}, client_fd);
+      } else if (command == "xread") {
+        if (items[1].strVal == "streams") {
+          std::string stream_key = items[2].strVal;
+          auto results =
+              streams[stream_key].xread(items[3].strVal);
+          std::vector<RedisReply> replies;
+          for (auto result : results) {
             std::vector<RedisReply> reply;
             reply.emplace_back(makeString(result.entry_id));
             std::vector<RedisReply> entries;
-            for (const auto& [field, value] : result.fields) {
-                entries.emplace_back(makeString(field));
-                entries.emplace_back(makeString(value));
+            for (const auto &[field, value] : result.fields) {
+              entries.emplace_back(makeString(field));
+              entries.emplace_back(makeString(value));
             }
             reply.emplace_back(makeArray(entries));
             replies.emplace_back(makeArray(reply));
+          }
+          sendReply({makeArray(replies)}, client_fd);
         }
-        sendReply({makeArray(replies)}, client_fd);
       }
     end:
       // std::cout << "processed_bytes = " << processed_bytes << std::endl;
