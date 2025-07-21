@@ -788,8 +788,10 @@ private:
       server_replies.emplace_back(makeString("OK"), client_fd);
     } else if(command == "rpush") {
       std::string key = items[1].strVal;
-      std::string value = items[2].strVal;
-      key_lists[key].emplace_back(std::move(value));
+      for(int i = 2; i < items.size(); i++) {
+        std::string value = items[i].strVal;
+        key_lists[key].emplace_back(std::move(value));
+      }
       server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
     }
   end:
