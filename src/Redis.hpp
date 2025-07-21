@@ -344,10 +344,7 @@ public:
         // std::cout << "is_master = " << is_master << " SET " << key << " " <<
         // value << std::endl;
         if (is_master) {
-          RedisReply ok;
-          ok.type = REPLY_STRING;
-          ok.strVal = "OK";
-          sendReply({ok}, client_fd);
+          sendReply({makeString("OK")}, client_fd);
           for (int fd : slave_fds) {
             sendReply({reply}, fd);
             // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << "
@@ -671,6 +668,7 @@ public:
             int val = std::stoi(kvs[cur_db][key]);
             val++;
             kvs[cur_db][key] = std::to_string(val);
+            sendReply({makeString("OK")}, client_fd);
         }
       }
     end:
