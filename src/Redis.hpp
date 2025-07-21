@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <filesystem>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -31,7 +32,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <deque>
 namespace fs = std::filesystem;
 
 class Redis {
@@ -129,7 +129,7 @@ public:
       }
       // REPLCONF listening-port <PORT>
       sendReply(makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"),
-                            makeBulk(std::to_string(port))}),
+                           makeBulk(std::to_string(port))}),
                 master_fd);
       // REPLCONF capa psync2
       reply = readOneReply(master_fd);
@@ -142,7 +142,7 @@ public:
         throw std::runtime_error("LISTENING-PORT FAILED");
       }
       sendReply(makeArray({makeBulk("REPLCONF"), makeBulk("capa"),
-                            makeBulk("psync2")}),
+                           makeBulk("psync2")}),
                 master_fd);
       // std::cout << reply.strVal << std::endl;
       reply = readOneReply(master_fd);
@@ -388,7 +388,8 @@ private:
     }
     sendReply(makeArray(totals), client_fd);
   }
-  std::vector<RedisServerReply> process_command(RedisReply reply, const int client_fd) {
+  std::vector<RedisServerReply> process_command(RedisReply reply,
+                                                const int client_fd) {
     std::vector<RedisReply> &items = reply.elements;
     std::string command = items.front().strVal;
     std::transform(command.begin(), command.end(), command.begin(), ::tolower);
@@ -398,24 +399,26 @@ private:
     }
     std::cout << "*****" << std::endl;
     std::vector<RedisServerReply> server_replies;
-    if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" && command != "discard") {
+    if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" &&
+        command != "discard") {
       std::cout << "in multi mode" << std::endl;
       multi_queue[client_fd].emplace_back(reply);
-    //   sendReply({makeString("QUEUED")}, client_fd);
-    server_replies.emplace_back(makeString("QUEUED"), client_fd);
-    } else if(command == "discard") {
+      //   sendReply({makeString("QUEUED")}, client_fd);
+      server_replies.emplace_back(makeString("QUEUED"), client_fd);
+    } else if (command == "discard") {
       if (multi_queue.find(client_fd) != multi_queue.end()) {
         multi_queue.erase(client_fd);
         server_replies.emplace_back(makeString("OK"), client_fd);
       } else {
-        server_replies.emplace_back(makeError("ERR DISCARD without MULTI"), client_fd);
+        server_replies.emplace_back(makeError("ERR DISCARD without MULTI"),
+                                    client_fd);
       }
     } else if (command == "exec") {
       if (multi_queue.find(client_fd) != multi_queue.end()) {
         if (multi_queue[client_fd].empty()) {
           std::cout << "multi queue empty" << std::endl;
           multi_queue.erase(client_fd);
-        //   sendReply({makeArray({})}, client_fd);
+          //   sendReply({makeArray({})}, client_fd);
           server_replies.emplace_back(makeArray({}), client_fd);
         } else {
           std::vector<RedisReply> replys = std::move(multi_queue[client_fd]);
@@ -424,18 +427,19 @@ private:
         }
       } else {
         // sendReply({makeError("ERR EXEC without MULTI")}, client_fd);
-        server_replies.emplace_back(makeError("ERR EXEC without MULTI"), client_fd);
+        server_replies.emplace_back(makeError("ERR EXEC without MULTI"),
+                                    client_fd);
       }
     } else if (command == "echo") {
       // items.erase(items.begin());
-    //   sendReply(items, client_fd);
-    server_replies.emplace_back(items[1], client_fd);
+      //   sendReply(items, client_fd);
+      server_replies.emplace_back(items[1], client_fd);
     } else if (command == "ping" && client_fd != _master_fd) {
       RedisReply pong;
       pong.type = REPLY_STRING;
       pong.strVal = "PONG";
-    //   sendReply({pong}, client_fd);
-    server_replies.emplace_back(pong, client_fd);
+      //   sendReply({pong}, client_fd);
+      server_replies.emplace_back(pong, client_fd);
     } else if (command == "set") {
       if (items.size() < 3)
         return {};
@@ -457,7 +461,7 @@ private:
         // sendReply({makeString("OK")}, client_fd);
         server_replies.emplace_back(makeString("OK"), client_fd);
         for (int fd : slave_fds) {
-        //   sendReply({reply}, fd);
+          //   sendReply({reply}, fd);
           server_replies.emplace_back(reply, fd);
           // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << "
           // VALUE " << value << std::endl;
@@ -483,8 +487,8 @@ private:
       } else {
         result.type = REPLY_NIL;
       }
-    //   sendReply({result}, client_fd);
-        server_replies.emplace_back(result, client_fd);
+      //   sendReply({result}, client_fd);
+      server_replies.emplace_back(result, client_fd);
     } else if (command == "config") {
       command = items[1].strVal;
       std::transform(command.begin(), command.end(), command.begin(),
@@ -503,8 +507,8 @@ private:
           reply.elements.emplace_back(std::move(makeBulk(key)));
         }
       }
-    //   sendReply({reply}, client_fd);
-    server_replies.emplace_back(reply, client_fd);
+      //   sendReply({reply}, client_fd);
+      server_replies.emplace_back(reply, client_fd);
     } else if (command == "info") {
       std::string &arg = items[1].strVal;
       std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
@@ -526,11 +530,13 @@ private:
         std::string &arg = items[1].strVal;
         std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
         if (arg == "getack") {
-        //   sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"),
-        //                         makeBulk(std::to_string(processed_bytes))})},
-                    // client_fd);
-            server_replies.emplace_back(makeArray({makeBulk("REPLCONF"), makeBulk("ACK"),
-                                makeBulk(std::to_string(processed_bytes))}), client_fd);
+          //   sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"),
+          //                         makeBulk(std::to_string(processed_bytes))})},
+          // client_fd);
+          server_replies.emplace_back(
+              makeArray({makeBulk("REPLCONF"), makeBulk("ACK"),
+                         makeBulk(std::to_string(processed_bytes))}),
+              client_fd);
         } else if (arg == "ack") {
           std::cout << "REPLCONF ACK" << items[2].strVal << std::endl;
           if (wait_timer_event != nullptr) {
@@ -546,8 +552,8 @@ private:
             }
           }
         } else {
-        //   sendReply({makeString("OK")}, client_fd);
-        server_replies.emplace_back(makeString("OK"), client_fd);
+          //   sendReply({makeString("OK")}, client_fd);
+          server_replies.emplace_back(makeString("OK"), client_fd);
         }
       } else {
         // sendReply({makeString("OK")}, client_fd);
@@ -610,8 +616,10 @@ private:
         // sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("GETACK"),
         //                       makeBulk("*")})},
         //           fd);
-        server_replies.emplace_back(makeArray({makeBulk("REPLCONF"), makeBulk("GETACK"),
-                              makeBulk("*")}), fd);
+        server_replies.emplace_back(
+            makeArray(
+                {makeBulk("REPLCONF"), makeBulk("GETACK"), makeBulk("*")}),
+            fd);
       }
 
       int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
@@ -662,11 +670,12 @@ private:
       std::string seqno = id.substr(pos + 1);
       if (seqno == "0" && timestamp == "0") {
         // sendReply({makeError(
-        //               "ERR The ID specified in XADD must be greater than 0-0")},
+        //               "ERR The ID specified in XADD must be greater than
+        //               0-0")},
         //           client_fd);
-        server_replies.emplace_back(makeError(
-                  "ERR The ID specified in XADD must be greater than 0-0"),
-                  client_fd);
+        server_replies.emplace_back(
+            makeError("ERR The ID specified in XADD must be greater than 0-0"),
+            client_fd);
         goto end;
       }
       if (timestamp < last_timestamp ||
@@ -675,9 +684,10 @@ private:
         // sendReply({makeError("ERR The ID specified in XADD is equal or "
         //                      "smaller than the target stream top item")},
         //           client_fd);
-        server_replies.emplace_back(makeError("ERR The ID specified in XADD is equal or "
-                  "smaller than the target stream top item"),
-                  client_fd);
+        server_replies.emplace_back(
+            makeError("ERR The ID specified in XADD is equal or "
+                      "smaller than the target stream top item"),
+            client_fd);
         goto end;
       }
 
@@ -776,18 +786,22 @@ private:
         } else {
           std::vector<RedisReply> single_stream_reply =
               AssembleStreamResults(client_fd, stream_key, start_id);
-          // sendReply({makeArray({makeArray(single_stream_reply)})}, client_fd);
-          server_replies.emplace_back(makeArray({makeArray(single_stream_reply)}), client_fd);
+          // sendReply({makeArray({makeArray(single_stream_reply)})},
+          // client_fd);
+          server_replies.emplace_back(
+              makeArray({makeArray(single_stream_reply)}), client_fd);
         }
       }
     } else if (command == "incr") {
       std::string key = items[1].strVal;
       if (kvs[cur_db].find(key) != kvs[cur_db].end()) {
         if (not isNumber(kvs[cur_db][key])) {
-          // sendReply({makeError("ERR value is not an integer or out of range")},
+          // sendReply({makeError("ERR value is not an integer or out of
+          // range")},
           //           client_fd);
-          server_replies.emplace_back(makeError("ERR value is not an integer or out of range"),
-                  client_fd);
+          server_replies.emplace_back(
+              makeError("ERR value is not an integer or out of range"),
+              client_fd);
           goto end;
         }
         int val = std::stoi(kvs[cur_db][key]);
@@ -804,26 +818,29 @@ private:
       multi_queue[client_fd] = {};
       // sendReply({makeString("OK")}, client_fd);
       server_replies.emplace_back(makeString("OK"), client_fd);
-    } else if(command == "rpush") {
+    } else if (command == "rpush") {
       std::string key = items[1].strVal;
-      for(int i = 2; i < items.size(); i++) {
+      for (int i = 2; i < items.size(); i++) {
         std::string value = items[i].strVal;
         key_lists[key].emplace_back(std::move(value));
       }
       check_blpop_event(key, client_fd);
-      server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
-    } else if(command == "lrange") {
+      server_replies.emplace_back(makeInterger(key_lists[key].size()),
+                                  client_fd);
+    } else if (command == "lrange") {
       std::string key = items[1].strVal;
-      if(key_lists.find(key) != key_lists.end()) {
+      if (key_lists.find(key) != key_lists.end()) {
         int start = std::stoi(items[2].strVal);
         int end = std::stoi(items[3].strVal);
-        if(start < 0) start += key_lists[key].size();
-        if(end < 0) end += key_lists[key].size();
+        if (start < 0)
+          start += key_lists[key].size();
+        if (end < 0)
+          end += key_lists[key].size();
         start = std::max(start, 0);
         end = std::min(end, static_cast<int>(key_lists[key].size() - 1));
 
         std::vector<RedisReply> replies;
-        for(; start <= end; start++) {
+        for (; start <= end; start++) {
           replies.emplace_back(makeBulk(key_lists[key][start]));
         }
         // sendReply({makeArray(replies)}, client_fd);
@@ -831,68 +848,70 @@ private:
       } else {
         server_replies.emplace_back(makeArray({}), client_fd);
       }
-    } else if(command == "lpush") {
+    } else if (command == "lpush") {
       std::string key = items[1].strVal;
-      for(int i = 2; i < items.size(); i++) {
+      for (int i = 2; i < items.size(); i++) {
         std::string value = items[i].strVal;
         key_lists[key].emplace_front(std::move(value));
       }
       check_blpop_event(key, client_fd);
-      server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
-    } else if(command == "llen") {
+      server_replies.emplace_back(makeInterger(key_lists[key].size()),
+                                  client_fd);
+    } else if (command == "llen") {
       std::string key = items[1].strVal;
-      if(key_lists.find(key) != key_lists.end()) {
-        server_replies.emplace_back(makeInterger(key_lists[key].size()), client_fd);
+      if (key_lists.find(key) != key_lists.end()) {
+        server_replies.emplace_back(makeInterger(key_lists[key].size()),
+                                    client_fd);
       } else {
         server_replies.emplace_back(makeInterger(0), client_fd);
       }
-    } else if(command == "lpop") {
+    } else if (command == "lpop") {
       int sz = 1;
       std::string key = items[1].strVal;
-      if(items.size() == 3) {
+      if (items.size() == 3) {
         sz = std::stoi(items[2].strVal);
         sz = std::min(sz, static_cast<int>(key_lists[key].size()));
       }
-      if(sz == 1) {
-        server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
+      if (sz == 1) {
+        server_replies.emplace_back(makeBulk(key_lists[key].front()),
+                                    client_fd);
         key_lists[key].pop_front();
-      } else if(key_lists.find(key) != key_lists.end()) {
+      } else if (key_lists.find(key) != key_lists.end()) {
         std::vector<RedisReply> replies;
-        for(int i = 0; i < sz; i++) {
+        for (int i = 0; i < sz; i++) {
           replies.emplace_back(makeBulk(key_lists[key].front()));
           key_lists[key].pop_front();
         }
         server_replies.emplace_back(makeArray(replies), client_fd);
-        // server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
-        // key_lists[key].pop_front();
+        // server_replies.emplace_back(makeBulk(key_lists[key].front()),
+        // client_fd); key_lists[key].pop_front();
       } else {
         server_replies.emplace_back(makeBulk(""), client_fd);
       }
-    } else if(command == "blpop") {
+    } else if (command == "blpop") {
       std::string key = items[1].strVal;
       long timeout = std::stoll(items[2].strVal);
-      if(timeout == 0) {
-        blpop_timer_event =
-              new RedisBlpopEvent(-1, client_fd, key,
-                                       std::chrono::milliseconds(timeout));
-      } else {
-          int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-          itimerspec it = {
-              .it_interval = {0, 0},
-              .it_value = {timeout / 1000, (timeout % 1000) * 1000000}};
-          timerfd_settime(timerfd, 0, &it, nullptr);
-          epoll_event ev;
-          ev.events = EPOLLIN;
-          ev.data.fd = timerfd;
-          blpop_timer_event =
-              new RedisBlpopEvent(timerfd, client_fd, key,
-                                       std::chrono::milliseconds(timeout));
-          xread_block_timer_event->on_finish = [this](int client_fd) {
-            sendReply({makeNIL()}, client_fd);
-          };
-          epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);
+      if (blpop_timer_event == nullptr) {
+        blpop_timer_event = new RedisBlpopEvent(-1, key);
       }
-
+      blpop_timer_event->client_expire_time.emplace(
+          currentTimeMillis() + static_cast<uint64_t>(timeout), client_fd);
+      if (timeout != 0) {
+        int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+        itimerspec it = {
+            .it_interval = {0, 0},
+            .it_value = {timeout / 1000, (timeout % 1000) * 1000000}};
+        timerfd_settime(timerfd, 0, &it, nullptr);
+        epoll_event ev;
+        ev.events = EPOLLIN;
+        ev.data.fd = timerfd;
+        // blpop_timer_event =
+        //     new RedisBlpopEvent(timerfd, key);
+        // xread_block_timer_event->on_finish = [this](int client_fd) {
+        //   sendReply({makeNIL()}, client_fd);
+        // };
+        epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);
+      }
     }
   end:
     // std::cout << "processed_bytes = " << processed_bytes << std::endl;
@@ -931,17 +950,22 @@ private:
   }
 
   void check_blpop_event(std::string key, const int client_fd) {
-    if(blpop_timer_event == nullptr) {
+    if (blpop_timer_event == nullptr) {
       return;
     }
-    if(blpop_timer_event->list_key == key) {
-      std::vector<RedisReply> replies;
-      // server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
-      sendReply(makeBulk(key_lists[key].front()), client_fd);
+    if (blpop_timer_event->list_key == key) {
+      // std::vector<RedisReply> replies;
+      // server_replies.emplace_back(makeBulk(key_lists[key].front()),
+      // client_fd);
+      sendReply(makeArray({makeBulk(key), makeBulk(key_lists[key].front())}),
+                blpop_timer_event->client_expire_time.top().second);
+      blpop_timer_event->client_expire_time.pop();
       key_lists[key].pop_front();
     }
+    if(!blpop_timer_event->client_expire_time.empty()){
+      clear_blpop_timer_event();
+    }
   }
-   
 
   RedisReply makeBulk(const std::string &s) {
     RedisReply r;

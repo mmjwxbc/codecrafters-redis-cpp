@@ -6,6 +6,8 @@
 #include <functional>
 #include <unordered_set>
 #include <string>
+#include <queue>
+
 
 struct RedisWaitEvent {
     int timerfd;
@@ -58,24 +60,16 @@ struct RedisXreadBlockEvent {
 
 struct RedisBlpopEvent {
     int timerfd;
-    int client_fd;
     std::string list_key;
+    std::priority_queue<std::pair<uint64_t, int>, std::vector<std::pair<uint64_t, int>>, std::greater<std::pair<uint64_t, int>> > client_expire_time;
 
 
-    std::chrono::steady_clock::time_point expire_time;
-
-    std::function<void(int)> on_finish;
+    // std::function<void(int)> on_finish;
 
     RedisBlpopEvent(int timerfd_,
-                   int client_fd_,
-                   std::string list_key,
-                   std::chrono::milliseconds timeout
-                  )
+                   std::string list_key)
         : timerfd(timerfd_),
-          client_fd(client_fd_),
-          list_key(list_key),
-          expire_time(std::chrono::steady_clock::now() + timeout)
-          {}
+          list_key(list_key) {}
 };
 
 #endif // REDIS_WAIT_EVENT_HPP
