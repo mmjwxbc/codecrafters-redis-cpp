@@ -582,7 +582,7 @@ public:
           }
         }
         streams[stream_key].insert(id, key, value);
-        sendReply({makeArray({makeString(id)})}, client_fd);
+        sendReply({makeBulk(id)}, client_fd);
       }
     end:
       // std::cout << "processed_bytes = " << processed_bytes << std::endl;
