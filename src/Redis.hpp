@@ -856,7 +856,7 @@ private:
       if(key_lists.find(key) != key_lists.end()) {
         std::vector<RedisReply> replies;
         for(int i = 0; i < sz && i < key_lists[key].size(); i++) {
-          replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
+          replies.emplace_back(makeBulk(key_lists[key].front()));
           key_lists[key].pop_front();
         }
         server_replies.emplace_back(makeArray(replies), client_fd);
