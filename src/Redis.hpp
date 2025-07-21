@@ -668,7 +668,7 @@ public:
             int val = std::stoi(kvs[cur_db][key]);
             val++;
             kvs[cur_db][key] = std::to_string(val);
-            sendReply({makeString("OK")}, client_fd);
+            sendReply({makeInterger(val)}, client_fd);
         }
       }
     end:
