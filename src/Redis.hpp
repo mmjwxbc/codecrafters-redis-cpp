@@ -329,8 +329,8 @@ public:
                 multi_queue.erase(client_fd);                
                 sendReply({makeArray({})}, client_fd);
             } else {
-                multi_queue.erase(client_fd);                
                 std::vector<RedisReply> replys = std::move(multi_queue[client_fd]);
+                multi_queue.erase(client_fd);                
                 process_command(multi_queue[client_fd], client_fd);
             }
         } else {
