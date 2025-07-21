@@ -620,7 +620,8 @@ public:
           std::string stream_key = items[2].strVal;
           auto results =
               streams[stream_key].xread(items[3].strVal);
-          std::vector<RedisReply> replies;
+          std::vector<RedisReply> single_stream_reply;
+          single_stream_reply.emplace_back(makeString(stream_key));
           for (auto result : results) {
             std::vector<RedisReply> reply;
             reply.emplace_back(makeString(result.entry_id));
@@ -630,9 +631,9 @@ public:
               entries.emplace_back(makeString(value));
             }
             reply.emplace_back(makeArray(entries));
-            replies.emplace_back(makeArray(reply));
+            single_stream_reply.emplace_back(makeArray(reply));
           }
-          sendReply({makeArray(replies)}, client_fd);
+          sendReply({makeArray(single_stream_reply)}, client_fd);
         }
       }
     end:
