@@ -1,6 +1,8 @@
 #include <string>
 #include <iostream>
 #include <fcntl.h>
+#include <chrono>
+#include <cstdint>
 
 bool matchPattern(const std::string &pattern, const std::string &text) {
     size_t p = 0, t = 0, star = std::string::npos, match = 0;
@@ -44,4 +46,10 @@ void set_non_blocking(const int fd) {
         perror("fcntl set");
         exit(1);
     }
+}
+
+
+uint64_t currentTimeMillis() {
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
