@@ -329,9 +329,8 @@ public:
                 sendReply({makeArray({})}, client_fd);
             } else {
                 process_command(multi_queue[client_fd], client_fd);
-                multi_queue.erase(client_fd);                
             }
-
+            multi_queue.erase(client_fd);                
         } else {
             sendReply({makeError("ERR EXEC without MULTI")}, client_fd);
         }
