@@ -617,23 +617,29 @@ public:
         sendReply({makeArray(replies)}, client_fd);
       } else if (command == "xread") {
         if (items[1].strVal == "streams") {
-          std::string stream_key = items[2].strVal;
-          auto results =
-              streams[stream_key].xread(items[3].strVal);
-          std::vector<RedisReply> single_stream_reply;
-          single_stream_reply.emplace_back(makeString(stream_key));
-          for (auto result : results) {
-            std::vector<RedisReply> reply;
-            reply.emplace_back(makeString(result.entry_id));
-            std::vector<RedisReply> entries;
-            for (const auto &[field, value] : result.fields) {
-              entries.emplace_back(makeString(field));
-              entries.emplace_back(makeString(value));
+          // 2 3 4 5
+          std::vector<RedisReply> streams_replies;
+          int num_args = static_cast<int>((items.size() - 2) / 2);
+          for (int i = 2; i < num_args + 2; i++) {
+            std::string stream_key = items[2].strVal;
+            auto results = streams[stream_key].xread(items[i + 2].strVal);
+            std::vector<RedisReply> single_stream_reply;
+            single_stream_reply.emplace_back(makeString(stream_key));
+            std::vector<RedisReply> replies;
+            for (auto result : results) {
+              std::vector<RedisReply> reply;
+              reply.emplace_back(makeString(result.entry_id));
+              std::vector<RedisReply> entries;
+              for (const auto &[field, value] : result.fields) {
+                entries.emplace_back(makeString(field));
+                entries.emplace_back(makeString(value));
+              }
+              reply.emplace_back(entries);
+              replies.emplace_back(makeArray(reply));
             }
-            reply.emplace_back(makeArray(entries));
-            single_stream_reply.emplace_back(makeArray(reply));
+            single_stream_reply.emplace_back(makeArray(replies));
           }
-          sendReply({makeArray(single_stream_reply)}, client_fd);
+          sendReply({makeArray(streams_replies)}, client_fd);
         }
       }
     end:
