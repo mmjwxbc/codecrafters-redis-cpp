@@ -840,7 +840,7 @@ private:
           server_replies.emplace_back(makeBulk(key_lists[key].front()), client_fd);
           key_lists[key].pop_front();
         }
-        server_replies.emplace_back(replies, client_fd);
+        server_replies.emplace_back(makeArray(replies), client_fd);
       } else {
         server_replies.emplace_back(makeArray({}), client_fd);
       }
