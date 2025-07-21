@@ -665,10 +665,17 @@ public:
       } else if(command == "incr") {
         std::string key = items[1].strVal;
         if(kvs[cur_db].find(key) != kvs[cur_db].end()) {
+            if(not isNumber(kvs[cur_db][key])) {
+                sendReply({makeError("ERR value is not an integer or out of range")}, client_fd);
+                goto end;
+            }
             int val = std::stoi(kvs[cur_db][key]);
             val++;
             kvs[cur_db][key] = std::to_string(val);
             sendReply({makeInterger(val)}, client_fd);
+        } else {
+            kvs[cur_db][key] = std::to_string(1);
+            sendReply({makeInterger(1)}, client_fd);
         }
       }
     end:
