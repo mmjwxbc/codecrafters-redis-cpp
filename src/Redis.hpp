@@ -639,6 +639,7 @@ public:
             std::string stream_key = items[4].strVal;
             std::string start_id = items[5].strVal;
             auto results = streams[stream_key].xread(start_id);
+            std::cout << "results empty = " << results.empty() << std::endl;
             if(results.empty()) {
                 int timeout = std::stoi(items[2].strVal);
                 int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
@@ -651,7 +652,7 @@ public:
                 ev.data.fd = timerfd;
                 xread_block_timer_event = new RedisXreadBlockEvent(timerfd, client_fd, stream_key, start_id,
                                                 std::chrono::milliseconds(timeout));
-                wait_timer_event->on_finish = [this](int client_fd) {
+                xread_block_timer_event->on_finish = [this](int client_fd) {
                     sendReply({makeNIL()}, client_fd);
                 };
                 epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);

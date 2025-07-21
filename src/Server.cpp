@@ -114,6 +114,7 @@ int main(int argc, char **argv) {
       } else if (fd == xread_block_timerfd) {
         RedisXreadBlockEvent *timer_event = redis.get_xread_block_timer_event();
         if (timer_event != nullptr) {
+          cout << "xread block timeout send nil" << endl;
           timer_event->on_finish(timer_event->client_fd);
           redis.clear_xread_block_timer_event();
         }
