@@ -4,7 +4,7 @@
 #include <map>
 #include <memory>
 #include <utility>
-
+#include <iostream>
 struct RedisStreamEntry {
     std::string entry_id;
     std::vector<std::pair<std::string, std::string>> fields;
@@ -160,6 +160,7 @@ public:
         for (auto it = beginIt; it != endIt; ++it) {
             result.insert(result.end(), it->second.begin(), it->second.end());
         }
+        std::cout << "xrange size = " << result.size() << std::endl;
         return result;
     }
 

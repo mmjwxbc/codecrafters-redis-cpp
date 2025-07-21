@@ -601,8 +601,8 @@ public:
                 entries.emplace_back(makeString(field));
                 entries.emplace_back(makeString(value));
             }
-            reply.emplace_back(entries);
-            replies.emplace_back(reply);
+            reply.emplace_back(makeArray(entries));
+            replies.emplace_back(makeArray(reply));
         }
         sendReply({makeArray(replies)}, client_fd);
       }
