@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
             break;
           }
         }
-        redis.process_command(replies, fd);
+        redis.process_request(replies, fd);
         if (is_close) {
           epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
           close(fd);
