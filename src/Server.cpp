@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
         break;
       }
     }
-    redis.process_command(master_reply, master_fd);
+    redis.process_request(master_reply, master_fd);
     int flags = fcntl(master_fd, F_GETFL, 0);
     fcntl(master_fd, F_SETFL, flags | O_NONBLOCK);
     epoll_event master_ev;
