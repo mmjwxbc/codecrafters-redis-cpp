@@ -53,10 +53,10 @@ private:
     int epoll_fd{-1};
     size_t processed_bytes{0};
     RedisWaitEvent *timer_event{nullptr};
-    Stream stream;
+    std::unordered_map<std::string, Stream> streams;
 public:
     Redis(std::string dir, std::string dbfilename, int cur_db = 0, int port = Protocol::DEFAULT_PORT, bool is_master = true, std::string replicaof = "", const std::string& host = Protocol::DEFAULT_HOST, int connection_backlog = 5)
-        : sockfd(-1), host(host), port(port), is_master(is_master), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16), stream() {
+        : sockfd(-1), host(host), port(port), is_master(is_master), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16) {
         if(!dir.empty() && !dbfilename.empty()) {
             fs::path filepath = fs::path(dir) / dbfilename;
             if(fs::exists(filepath)) {
@@ -461,7 +461,7 @@ public:
                 std::string key = items[1].strVal;
                 if(kvs[cur_db].count(key)) {
                     sendReply({makeString("string")}, client_fd);
-                } else if(not stream.find(key).empty()) {
+                } else if(streams.find(key) != streams.end()) {
                     sendReply({makeString("stream")}, client_fd);
                 } else {
                     sendReply({makeString("none")}, client_fd);
@@ -478,6 +478,7 @@ public:
                 }
                 if(seqno == "0" && timestamp == "0") {
                     sendReply({makeError("ERR The ID specified in XADD must be greater than 0-0")}, client_fd);
+                    goto end;
                 }
                 // if(streams.count(stream_key) == 0) {
                 //     streams[stream_key] = std::vector<RedisStreamEntry>();
@@ -501,26 +502,29 @@ public:
                 // if(streams[stream_key].size() > 0) {
                 // std::cout << "streams[stream_key].back().id = " << streams[stream_key].back().id << std::endl;
                 // }
-                std::string last_timestamp = stream.getLastMillisecondsTime();
-                std::string last_seqno = stream.getLastSeqno();
-                if(timestamp < last_timestamp || (timestamp == last_timestamp && seqno <= last_seqno)) {
+                std::string last_timestamp = streams[stream_key].getLastMillisecondsTime();
+                std::string last_seqno = streams[stream_key].getLastSeqno();
+                if(timestamp < last_timestamp || (timestamp == last_timestamp && (seqno != "*" && seqno <= last_seqno))) {
                     sendReply({makeError("ERR The ID specified in XADD is equal or smaller than the target stream top item")}, client_fd);
                     goto end;
                 }
                 std::string key = items[3].strVal;
                 std::string value = items[4].strVal;
                 if(timestamp == last_timestamp) {
-                    if(seqno != "*") {
-                        stream.insert(id, key, value);
-                    } else {
+                    if(seqno == "*") {
                         int next_seqno = std::stoi(last_seqno) + 1;
                         id.pop_back();
                         id += std::to_string(next_seqno);
-                        stream.insert(id, key, value);
                     }
                 } else {
-                    stream.insert(id, key, value);
+                    if(seqno == "*") {
+                        int next_seqno = timestamp == "0" ? 1 : 0;
+                        id.pop_back();
+                        id += std::to_string(next_seqno);
+                    }
                 }
+                streams[stream_key].insert(id, key, value);
+                sendReply({makeString(id)}, client_fd);
             }
             end:
             // std::cout << "processed_bytes = " << processed_bytes << std::endl;
