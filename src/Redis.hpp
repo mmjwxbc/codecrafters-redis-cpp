@@ -401,9 +401,9 @@ private:
         server_replies.emplace_back(makeError("ERR EXEC without MULTI"), client_fd);
       }
     } else if (command == "echo") {
-      items.erase(items.begin());
+      // items.erase(items.begin());
     //   sendReply(items, client_fd);
-    server_replies.emplace_back(makeArray(items), client_fd);
+    server_replies.emplace_back(items[1], client_fd);
     } else if (command == "ping" && client_fd != _master_fd) {
       RedisReply pong;
       pong.type = REPLY_STRING;
@@ -432,7 +432,7 @@ private:
         server_replies.emplace_back(makeString("OK"), client_fd);
         for (int fd : slave_fds) {
         //   sendReply({reply}, fd);
-          server_replies.emplace_back(reply, client_fd);
+          server_replies.emplace_back(reply, fd);
           // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << "
           // VALUE " << value << std::endl;
         }
@@ -585,7 +585,7 @@ private:
         //                       makeBulk("*")})},
         //           fd);
         server_replies.emplace_back(makeArray({makeBulk("REPLCONF"), makeBulk("GETACK"),
-                              makeBulk("*")}), client_fd);
+                              makeBulk("*")}), fd);
       }
 
       int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
