@@ -805,8 +805,6 @@ private:
         for(; start <= end; start++) {
           replies.emplace_back(makeBulk(key_lists[key][start]));
         }
-          replies.emplace_back(makeBulk(value));
-        }
         // sendReply({makeArray(replies)}, client_fd);
         server_replies.emplace_back(makeArray(replies), client_fd);
       } else {
