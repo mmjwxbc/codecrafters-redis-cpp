@@ -322,6 +322,13 @@ public:
         std::cout << "in multi mode" << std::endl;
         multi_queue[client_fd].emplace_back(reply);
         sendReply({makeString("QUEUED")}, client_fd);
+      } else if(command == "exec") {
+        if(multi_queue.find(client_fd) != multi_queue.end()) {
+            process_command(multi_queue[client_fd], client_fd);
+            multi_queue.erase(client_fd);
+        } else {
+            sendReply({makeError("ERR EXEC without MULTI")}, client_fd);
+        }
       } else if (command == "echo") {
         items.erase(items.begin());
         sendReply(items, client_fd);
