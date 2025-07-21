@@ -824,7 +824,7 @@ private:
         std::string value = items[i].strVal;
         key_lists[key].emplace_back(std::move(value));
       }
-      check_blpop_event(key, client_fd);
+      check_blpop_event(key);
       server_replies.emplace_back(makeInterger(key_lists[key].size()),
                                   client_fd);
     } else if (command == "lrange") {
@@ -854,7 +854,7 @@ private:
         std::string value = items[i].strVal;
         key_lists[key].emplace_front(std::move(value));
       }
-      check_blpop_event(key, client_fd);
+      check_blpop_event(key);
       server_replies.emplace_back(makeInterger(key_lists[key].size()),
                                   client_fd);
     } else if (command == "llen") {
@@ -949,7 +949,7 @@ private:
     return oss.str();
   }
 
-  void check_blpop_event(std::string key, const int client_fd) {
+  void check_blpop_event(std::string key) {
     if (blpop_timer_event == nullptr) {
       return;
     }
