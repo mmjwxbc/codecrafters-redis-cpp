@@ -224,6 +224,9 @@ public:
   }
 
   int xread_block_event_timer_fd() const {
+    if(xread_block_timer_event != nullptr) {
+        return xread_block_timer_event->timerfd;
+    }
     return -1;
   }
 
@@ -638,7 +641,7 @@ public:
         } else if(items[1].strVal == "block") {
             std::string stream_key = items[4].strVal;
             std::string start_id = items[5].strVal;
-            if(not streams[stream_key].findExistId(start_id)) {
+            if(not streams[stream_key].findUpperId(start_id)) {
                 int timeout = std::stoi(items[2].strVal);
                 int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
                 itimerspec it = {
