@@ -389,7 +389,7 @@ private:
         multi_queue.erase(client_fd);
         server_replies.emplace_back(makeString("OK"), client_fd);
       } else {
-        server_replies.emplace_back(makeString("ERR DISCARD without MULTI"), client_fd);
+        server_replies.emplace_back(makeError("ERR DISCARD without MULTI"), client_fd);
       }
     } else if (command == "exec") {
       if (multi_queue.find(client_fd) != multi_queue.end()) {
