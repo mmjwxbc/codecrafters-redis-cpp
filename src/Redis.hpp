@@ -917,7 +917,9 @@ private:
       std::chrono::steady_clock::time_point expire_at = now + std::chrono::milliseconds(timeout);
       auto* ev = new RedisBlpopEvent{client_fd, key, expire_at};
       blpop_events_by_key[key].push_back(ev);
-      blpop_events_by_time.insert({ev->expire_time, ev});
+      if(timeout != 0) {
+        blpop_events_by_time.insert({ev->expire_time, ev});
+      }
     }
   end:
     if (client_fd == _master_fd) {
