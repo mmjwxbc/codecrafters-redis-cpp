@@ -80,7 +80,8 @@ int main(int argc, char **argv) {
   epoll_event events[MAX_EVENTS];
 
   while (true) {
-    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+    int timeout = redis.process_blpop_timeout_event();
+    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, timeout);
     if (nfds == -1) {
       perror("epoll_wait");
       break;
