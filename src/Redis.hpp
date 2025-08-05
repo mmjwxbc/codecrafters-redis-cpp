@@ -129,7 +129,7 @@ public:
         reply = readOneReply(master_fd);
       }
       if (reply.value().strVal != "PONG") {
-        cout << reply.value().strVal << endl;
+        // cout << reply.value().strVal << endl;
         throw runtime_error("SLAVE PING FAILED");
       }
       // REPLCONF listening-port <PORT>
@@ -143,7 +143,7 @@ public:
         reply = readOneReply(master_fd);
       }
       if (reply.value().strVal != "OK") {
-        cout << reply.value().strVal << endl;
+        // cout << reply.value().strVal << endl;
         throw runtime_error("LISTENING-PORT FAILED");
       }
       sendReply(makeArray({makeBulk("REPLCONF"), makeBulk("capa"),
@@ -157,7 +157,7 @@ public:
       }
       // cout << reply.strVal << endl;
       if (reply.value().strVal != "OK") {
-        cout << reply.value().strVal << endl;
+        // cout << reply.value().strVal << endl;
         throw runtime_error("LISTENING-PORT FAILED");
       }
       sendReply(makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")}),
@@ -167,7 +167,7 @@ public:
         recv_data(master_fd, is_close);
         reply = readOneReply(master_fd);
       }
-      cout << reply.value().strVal << endl;
+      // cout << reply.value().strVal << endl;
 
       auto rdb_len = readBulkStringLen(master_fd);
       while (not rdb_len.has_value()) {
@@ -205,7 +205,7 @@ public:
       rdb_data = master_buffer.substr(0, rdb_len.value());
       master_buffer.erase(0, rdb_len.value());
       _master_fd = master_fd;
-      cout << "Receive RDB FILE" << endl;
+      // cout << "Receive RDB FILE" << endl;
     }
     metadata.insert_or_assign("dir", dir);
     metadata.insert_or_assign("dbfilename", dbfilename);
@@ -423,7 +423,7 @@ private:
     // }
     // cout << "*****" << endl;
     vector<RedisServerReply> server_replies;
-    cout << "client fd = " << client_fd << " " << items[0].strVal << "in sub = " << (client_subscribe_channels.find(client_fd) != client_subscribe_channels.end()) <<  endl;
+    // cout << "client fd = " << client_fd << " " << items[0].strVal << "in sub = " << (client_subscribe_channels.find(client_fd) != client_subscribe_channels.end()) <<  endl;
     if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end()) {
       if(unsupport_command(command) == false) { 
         server_replies.emplace_back(makeError("ERR Can't execute \'" + command + "\': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context"), client_fd);
@@ -435,7 +435,7 @@ private:
     }
     if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" &&
         command != "discard") {
-      cout << "in multi mode" << endl;
+      // cout << "in multi mode" << endl;
       multi_queue[client_fd].emplace_back(reply);
       //   sendReply({makeString("QUEUED")}, client_fd);
       server_replies.emplace_back(makeString("QUEUED"), client_fd);
@@ -450,7 +450,7 @@ private:
     } else if (command == "exec") {
       if (multi_queue.find(client_fd) != multi_queue.end()) {
         if (multi_queue[client_fd].empty()) {
-          cout << "multi queue empty" << endl;
+          // cout << "multi queue empty" << endl;
           multi_queue.erase(client_fd);
           //   sendReply({makeArray({})}, client_fd);
           server_replies.emplace_back(makeArray({}), client_fd);
@@ -469,7 +469,7 @@ private:
       //   sendReply(items, client_fd);
       server_replies.emplace_back(items[1], client_fd);
     } else if (command == "ping" && client_fd != _master_fd) {
-      cout << "in else if :"  << items[0].strVal << endl;
+      // cout << "in else if :"  << items[0].strVal << endl;
 
       RedisReply pong;
       pong.type = REPLY_STRING;
@@ -574,12 +574,12 @@ private:
                          makeBulk(to_string(processed_bytes))}),
               client_fd);
         } else if (arg == "ack") {
-          cout << "REPLCONF ACK" << items[2].strVal << endl;
+          // cout << "REPLCONF ACK" << items[2].strVal << endl;
           if (wait_timer_event != nullptr) {
             if (wait_timer_event->ack_fds.count(client_fd) == 0) {
               int64_t offset = stoll(items[2].strVal);
-              cout << "fd = " << client_fd << " offset = " << offset
-                        << endl;
+              // cout << "fd = " << client_fd << " offset = " << offset
+                        // << endl;
               slave_offsets[client_fd] = offset;
               if (offset >= processed_bytes) {
                 wait_timer_event->ack_fds.insert(client_fd);
@@ -618,7 +618,7 @@ private:
       slave_fds.emplace_back(client_fd);
       slave_offsets.insert(make_pair(client_fd, 0));
       // cout << "slave client fd = " << client_fd << endl;
-      cout << "slave_fds.size() = " << slave_fds.size() << endl;
+      // cout << "slave_fds.size() = " << slave_fds.size() << endl;
     } else if (command == "wait") {
       if (items.size() < 3)
         return {};
@@ -628,19 +628,19 @@ private:
       // Check if there are any pending write operations
       bool has_pending_operations = false;
       for (int fd : slave_fds) {
-        cout << "slave_offsets[fd] = " << slave_offsets[fd]
-                  << " processed_bytes = " << processed_bytes << endl;
+        // cout << "slave_offsets[fd] = " << slave_offsets[fd]
+        //           << " processed_bytes = " << processed_bytes << endl;
         if (slave_offsets[fd] < processed_bytes) {
           has_pending_operations = true;
           break;
         }
       }
-      cout << "has_pending_operations = " << has_pending_operations
-                << endl;
+      // cout << "has_pending_operations = " << has_pending_operations
+      //           << endl;
 
       // If no pending operations, return immediately with 0
       if (!has_pending_operations) {
-        cout << "NO PENDING OPERATIONS" << endl;
+        // cout << "NO PENDING OPERATIONS" << endl;
         // sendReply({makeInterger(slave_fds.size())}, client_fd);
         server_replies.emplace_back(makeInterger(slave_fds.size()), client_fd);
         goto end;
@@ -648,7 +648,7 @@ private:
 
       // Send GETACK to all replicas to check their current offset
       for (int fd : slave_fds) {
-        cout << "SEND GETACK TO " << fd << endl;
+        // cout << "SEND GETACK TO " << fd << endl;
         // sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("GETACK"),
         //                       makeBulk("*")})},
         //           fd);
@@ -938,7 +938,7 @@ private:
       string channel_name = items[1].strVal;
       channel_subscribers[channel_name].insert(client_fd);
       client_subscribe_channels[client_fd].insert(channel_name);
-      cout << "client fd = " << client_fd << " " << (client_subscribe_channels.find(client_fd) != client_subscribe_channels.end()) << endl;
+      // cout << "client fd = " << client_fd << " " << (client_subscribe_channels.find(client_fd) != client_subscribe_channels.end()) << endl;
       server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(client_subscribe_channels[client_fd].size())}), client_fd);
     } else if(command == "publish") {
       string channel_name = items[1].strVal;
@@ -957,7 +957,7 @@ private:
         client_subscribe_channels[client_fd].erase(channel_name);
         channel_subscribers[channel_name].erase(client_fd);
       }
-      server_replies.emplace_back(makeArray({makeBulk("unbscribe"), makeBulk(channel_name), makeInterger(client_subscribe_channels[client_fd].size())}), client_fd);
+      server_replies.emplace_back(makeArray({makeBulk("unsubscribe"), makeBulk(channel_name), makeInterger(client_subscribe_channels[client_fd].size())}), client_fd);
 
     }
   end:
