@@ -927,7 +927,7 @@ private:
         channel[channel_name] = {};
       }
       channel_subscriber[channel_name].emplace_back(client_fd);
-      server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(channel_subscriber[channel_name].size())}));
+      server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(channel_subscriber[channel_name].size())}), client_fd);
     }
   end:
     if (client_fd == _master_fd) {
