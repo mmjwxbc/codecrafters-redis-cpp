@@ -423,7 +423,9 @@ private:
     // }
     // cout << "*****" << endl;
     vector<RedisServerReply> server_replies;
-    if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" &&
+    if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end() && unsupport_command(command)) {
+      server_replies.emplace_back(makeError("ERR Can't execute " + command + ": only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context"))
+    } else if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" &&
         command != "discard") {
       cout << "in multi mode" << endl;
       multi_queue[client_fd].emplace_back(reply);

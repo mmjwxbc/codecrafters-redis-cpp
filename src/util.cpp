@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <chrono>
 #include <cstdint>
+#include <unordered_set>
+
 
 bool matchPattern(const std::string &pattern, const std::string &text) {
     size_t p = 0, t = 0, star = std::string::npos, match = 0;
@@ -56,4 +58,12 @@ uint64_t currentTimeMillis() {
 
 bool isNumber(const std::string& str) {
     return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
+}
+
+
+bool unsupport_command(const std::string& cmd) {
+    static const std::unordered_set<std::string> commands = {
+        "PSUBSCRIBE", "SUBSCRIBE", "PUNSUBSCRIBE", "UNSUBSCRIBE", "PING", "QUIT", "RESET"
+    };
+    return commands.count(cmd) > 0;
 }
