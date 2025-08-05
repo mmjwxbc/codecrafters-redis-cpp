@@ -423,7 +423,7 @@ private:
     // }
     // cout << "*****" << endl;
     vector<RedisServerReply> server_replies;
-    if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end() && unsupport_command(command)) {
+    if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end() && !unsupport_command(command)) {
       if(command == "ping") {
         server_replies.emplace_back(makeArray({makeBulk("PONG"), makeBulk("")}), client_fd);
       } else {
