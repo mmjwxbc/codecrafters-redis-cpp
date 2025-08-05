@@ -63,10 +63,9 @@ bool isNumber(const std::string& str) {
 }
 
 
-bool unsupport_command(std::string& cmd) {
-    transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
+bool unsupport_command(const std::string& cmd) {
     static const std::unordered_set<std::string> commands = {
-        "PSUBSCRIBE", "SUBSCRIBE", "PUNSUBSCRIBE", "UNSUBSCRIBE", "PING", "QUIT", "RESET"
+        "psubscribe", "subscribe", "punsubscribe", "unsubscribe", "ping", "quit", "reset"
     };
     return commands.count(cmd) > 0;
 }
