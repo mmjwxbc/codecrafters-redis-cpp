@@ -27,7 +27,6 @@
 #include <sys/socket.h>
 #include <sys/timerfd.h>
 #include <sys/types.h>
-#include <type_traits>
 #include <unistd.h>
 #include <unordered_map>
 #include <utility>
@@ -62,7 +61,7 @@ private:
   unordered_map<string, deque<string>> key_lists;
   unordered_map<string, vector<RedisBlpopEvent*>> blpop_events_by_key;
   set<pair<chrono::steady_clock::time_point, RedisBlpopEvent*>> blpop_events_by_time;
-  unordered_map<string, vector<string>> channel;
+  unordered_map<string, set<int>> channel_subscribers;
   unordered_map<int, set<string>> client_subscribe_channels;
 
 
@@ -424,7 +423,7 @@ private:
     // }
     // cout << "*****" << endl;
     vector<RedisServerReply> server_replies;
-    cout << items[1].strVal << endl;
+    cout << items[0].strVal << endl;
     if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end() && unsupport_command(command) == false) {
       if(command == "ping") {
         server_replies.emplace_back(makeArray({makeBulk("PONG"), makeBulk("")}), client_fd);
@@ -467,6 +466,8 @@ private:
       //   sendReply(items, client_fd);
       server_replies.emplace_back(items[1], client_fd);
     } else if (command == "ping" && client_fd != _master_fd) {
+      cout << "in else if :"  << items[0].strVal << endl;
+
       RedisReply pong;
       pong.type = REPLY_STRING;
       pong.strVal = "PONG";
@@ -932,18 +933,28 @@ private:
       }
     } else if(command == "subscribe") {
       string channel_name = items[1].strVal;
-      if(channel.find(channel_name) == channel.end()) {
-        channel[channel_name] = {};
-      }
+      channel_subscribers[channel_name].insert(client_fd);
       client_subscribe_channels[client_fd].insert(channel_name);
       server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(client_subscribe_channels[client_fd].size())}), client_fd);
     } else if(command == "publish") {
       string channel_name = items[1].strVal;
+      string content = items[2].strVal;
       int size = 0;
-      if(channel.find(channel_name) != channel.end()) {
-        size = channel[channel_name].size();
+      if(channel_subscribers.find(channel_name) != channel_subscribers.end()) {
+        size = channel_subscribers[channel_name].size();
+        for(int cli_fd : channel_subscribers[channel_name]) {
+          server_replies.emplace_back(makeArray({makeBulk("message"), makeBulk(channel_name), makeBulk(content)}), channel_subscribers[channel_name][i]);
+        }
       }
       server_replies.emplace_back(makeInterger(size), client_fd);
+    } else if(command == "unsubscribe") {
+      string channel_name = items[1].strVal;
+      if(client_subscribe_channels[client_fd].find(channel_name) != client_subscribe_channels[client_fd].end()) {
+        client_subscribe_channels[client_fd].erase(channel_name);
+        channel_subscribers[channel_name].erase(client_fd);
+      }
+      server_replies.emplace_back(makeArray({makeBulk("unbscribe"), makeBulk(channel_name), makeInterger(client_subscribe_channels[client_fd].size())}), client_fd);
+
     }
   end:
     if (client_fd == _master_fd) {
