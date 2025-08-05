@@ -16,7 +16,6 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
-#include <filesystem>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <optional>
@@ -33,41 +32,43 @@
 #include <utility>
 #include <vector>
 #include <set>
-namespace fs = std::filesystem;
+using namespace std;
 
 class Redis {
 private:
   int sockfd;
-  std::string host;
+  string host;
   int port;
-  std::unordered_map<int, std::string> buffers;
+  unordered_map<int, string> buffers;
   int connection_backlog = 5;
   int cur_db{0};
-  std::vector<std::unordered_map<std::string, std::string>> kvs;
-  std::vector<std::unordered_map<std::string, int64_t>> key_elapsed_time_dbs;
-  std::unordered_map<std::string, std::string> metadata;
-  std::string master_host;
+  vector<unordered_map<string, string>> kvs;
+  vector<unordered_map<string, int64_t>> key_elapsed_time_dbs;
+  unordered_map<string, string> metadata;
+  string master_host;
   int master_port;
-  std::vector<int> slave_fds;
-  std::unordered_map<int, size_t> slave_offsets;
+  vector<int> slave_fds;
+  unordered_map<int, size_t> slave_offsets;
   bool is_master{true};
   int _master_fd{-1};
   int epoll_fd{-1};
   size_t processed_bytes{0};
   RedisWaitEvent *wait_timer_event{nullptr};
   RedisXreadBlockEvent *xread_block_timer_event{nullptr};
-  std::unordered_map<std::string, SimpleStream> streams;
-  std::unordered_map<int, std::vector<RedisReply>> multi_queue;
-  std::unordered_map<std::string, std::deque<std::string>> key_lists;
-  std::unordered_map<std::string, std::vector<RedisBlpopEvent*>> blpop_events_by_key;
-  std::set<std::pair<std::chrono::steady_clock::time_point, RedisBlpopEvent*>> blpop_events_by_time;
+  unordered_map<string, SimpleStream> streams;
+  unordered_map<int, vector<RedisReply>> multi_queue;
+  unordered_map<string, deque<string>> key_lists;
+  unordered_map<string, vector<RedisBlpopEvent*>> blpop_events_by_key;
+  set<pair<chrono::steady_clock::time_point, RedisBlpopEvent*>> blpop_events_by_time;
+  unordered_map<string, vector<string>> channel;
+  unordered_map<string, vector<int>> channel_subscriber;
 
 
 public:
-  Redis(std::string dir, std::string dbfilename, int cur_db = 0,
+  Redis(string dir, string dbfilename, int cur_db = 0,
         int port = Protocol::DEFAULT_PORT, bool is_master = true,
-        std::string replicaof = "",
-        const std::string &host = Protocol::DEFAULT_HOST,
+        string replicaof = "",
+        const string &host = Protocol::DEFAULT_HOST,
         int connection_backlog = 5)
       : sockfd(-1), host(host), port(port), is_master(is_master),
         connection_backlog(connection_backlog), cur_db(0), kvs(16),
@@ -84,17 +85,17 @@ public:
       bool is_close = false;
       int space_pos = replicaof.find(' ');
       master_host = replicaof.substr(0, space_pos);
-      master_port = std::stoi(replicaof.substr(space_pos + 1));
+      master_port = stoi(replicaof.substr(space_pos + 1));
 
       int master_fd = socket(AF_INET, SOCK_STREAM, 0);
       if (master_fd < 0) {
-        throw std::runtime_error("socket creation failed");
+        throw runtime_error("socket creation failed");
       }
 
       int reuse = 1;
       if (setsockopt(master_fd, SOL_SOCKET, SO_REUSEADDR, &reuse,
                      sizeof(reuse)) < 0) {
-        throw std::runtime_error("set sockopt failed\n");
+        throw runtime_error("set sockopt failed\n");
       }
 
       struct addrinfo hints{}, *res;
@@ -102,17 +103,17 @@ public:
       hints.ai_socktype = SOCK_STREAM; // TCP stream socket
 
       int err = getaddrinfo(master_host.c_str(),
-                            std::to_string(master_port).c_str(), &hints, &res);
+                            to_string(master_port).c_str(), &hints, &res);
       if (err != 0) {
         close(master_fd);
-        throw std::runtime_error("getaddrinfo failed: " +
-                                 std::string(gai_strerror(err)));
+        throw runtime_error("getaddrinfo failed: " +
+                                 string(gai_strerror(err)));
       }
 
       if (connect(master_fd, res->ai_addr, res->ai_addrlen) < 0) {
         freeaddrinfo(res);
         close(master_fd);
-        throw std::runtime_error("connect failed to master");
+        throw runtime_error("connect failed to master");
       }
       set_non_blocking(master_fd);
 
@@ -120,19 +121,19 @@ public:
 
       // Send PING to master after connection
       sendReply(makeArray({makeBulk("PING")}), master_fd);
-      std::optional<RedisReply> reply = readOneReply(master_fd);
-      // std::cout << reply.strVal << std::endl
+      optional<RedisReply> reply = readOneReply(master_fd);
+      // cout << reply.strVal << endl
       while (not reply.has_value()) {
         recv_data(master_fd, is_close);
         reply = readOneReply(master_fd);
       }
       if (reply.value().strVal != "PONG") {
-        std::cout << reply.value().strVal << std::endl;
-        throw std::runtime_error("SLAVE PING FAILED");
+        cout << reply.value().strVal << endl;
+        throw runtime_error("SLAVE PING FAILED");
       }
       // REPLCONF listening-port <PORT>
       sendReply(makeArray({makeBulk("REPLCONF"), makeBulk("listening-port"),
-                           makeBulk(std::to_string(port))}),
+                           makeBulk(to_string(port))}),
                 master_fd);
       // REPLCONF capa psync2
       reply = readOneReply(master_fd);
@@ -141,22 +142,22 @@ public:
         reply = readOneReply(master_fd);
       }
       if (reply.value().strVal != "OK") {
-        std::cout << reply.value().strVal << std::endl;
-        throw std::runtime_error("LISTENING-PORT FAILED");
+        cout << reply.value().strVal << endl;
+        throw runtime_error("LISTENING-PORT FAILED");
       }
       sendReply(makeArray({makeBulk("REPLCONF"), makeBulk("capa"),
                            makeBulk("psync2")}),
                 master_fd);
-      // std::cout << reply.strVal << std::endl;
+      // cout << reply.strVal << endl;
       reply = readOneReply(master_fd);
       while (not reply.has_value()) {
         recv_data(master_fd, is_close);
         reply = readOneReply(master_fd);
       }
-      // std::cout << reply.strVal << std::endl;
+      // cout << reply.strVal << endl;
       if (reply.value().strVal != "OK") {
-        std::cout << reply.value().strVal << std::endl;
-        throw std::runtime_error("LISTENING-PORT FAILED");
+        cout << reply.value().strVal << endl;
+        throw runtime_error("LISTENING-PORT FAILED");
       }
       sendReply(makeArray({makeBulk("PSYNC"), makeBulk("?"), makeBulk("-1")}),
                 master_fd);
@@ -165,14 +166,14 @@ public:
         recv_data(master_fd, is_close);
         reply = readOneReply(master_fd);
       }
-      std::cout << reply.value().strVal << std::endl;
+      cout << reply.value().strVal << endl;
 
       auto rdb_len = readBulkStringLen(master_fd);
       while (not rdb_len.has_value()) {
         recv_data(master_fd, is_close);
         rdb_len = readBulkStringLen(master_fd);
       }
-      std::string &master_buffer = buffers[master_fd];
+      string &master_buffer = buffers[master_fd];
 
       auto readable_bytes_in_buffer = master_buffer.size();
 
@@ -180,17 +181,17 @@ public:
         size_t bytes_to_read_from_kernel =
             static_cast<size_t>(rdb_len.value()) - readable_bytes_in_buffer;
 
-        std::vector<char> temp_buf(65536);
+        vector<char> temp_buf(65536);
         size_t total_received_from_kernel = 0;
 
         while (total_received_from_kernel < bytes_to_read_from_kernel) {
           ssize_t n = ::recv(master_fd, temp_buf.data(), temp_buf.size(), 0);
 
           if (n < 0) {
-            throw std::runtime_error("recv error while filling buffer for RDB");
+            throw runtime_error("recv error while filling buffer for RDB");
           }
           if (n == 0) {
-            throw std::runtime_error(
+            throw runtime_error(
                 "connection closed before RDB fully received");
           }
 
@@ -199,11 +200,11 @@ public:
           total_received_from_kernel += n;
         }
       }
-      std::string rdb_data;
+      string rdb_data;
       rdb_data = master_buffer.substr(0, rdb_len.value());
       master_buffer.erase(0, rdb_len.value());
       _master_fd = master_fd;
-      std::cout << "Receive RDB FILE" << std::endl;
+      cout << "Receive RDB FILE" << endl;
     }
     metadata.insert_or_assign("dir", dir);
     metadata.insert_or_assign("dbfilename", dbfilename);
@@ -263,10 +264,10 @@ public:
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     int reuse = 1;
     if (sockfd < 0)
-      throw std::runtime_error("Socket creation failed");
+      throw runtime_error("Socket creation failed");
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) <
         0) {
-      throw std::runtime_error("Socket set failed");
+      throw runtime_error("Socket set failed");
     }
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
@@ -274,21 +275,21 @@ public:
     inet_pton(AF_INET, host.c_str(), &server_addr.sin_addr);
 
     if (bind(sockfd, (sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-      throw std::runtime_error("bind failed");
+      throw runtime_error("bind failed");
     }
     if (listen(sockfd, connection_backlog) != 0) {
-      throw std::runtime_error("listen failed");
+      throw runtime_error("listen failed");
     }
   }
 
   void sendReply(const RedisReply &item, const int client_fd) {
-    std::string formatted = formatReply(item);
+    string formatted = formatReply(item);
     ::send(client_fd, formatted.c_str(), formatted.size(), 0);
   }
 
-  std::optional<int64_t> readBulkStringLen(const int client_fd) {
+  optional<int64_t> readBulkStringLen(const int client_fd) {
     RedisInputStream is(buffers[client_fd]);
-    std::optional<int64_t> len = Protocol::readBulkStringlen(is);
+    optional<int64_t> len = Protocol::readBulkStringlen(is);
     return len;
   }
 
@@ -307,12 +308,12 @@ public:
     }
   }
 
-  std::optional<RedisReply> readOneReply(const int client_fd) {
+  optional<RedisReply> readOneReply(const int client_fd) {
     RedisInputStream is(buffers[client_fd]);
     return Protocol::read(is);
   }
 
-  void process_request(std::vector<RedisReply> replies, const int client_fd) {
+  void process_request(vector<RedisReply> replies, const int client_fd) {
     for (auto reply : replies) {
       auto server_replies = process_command(reply, client_fd);
       for (auto server_reply : server_replies) {
@@ -325,7 +326,7 @@ public:
     if(blpop_events_by_time.empty()) {
       return -1;
     }
-    auto now = std::chrono::steady_clock::now();
+    auto now = chrono::steady_clock::now();
 
     while (!blpop_events_by_time.empty()) {
         auto it = blpop_events_by_time.begin();
@@ -341,7 +342,7 @@ public:
 
         // 移除从 key-index 索引中（例如 unordered_map<string, vector<event>>）
         auto& vec = blpop_events_by_key[ev->list_key];
-        vec.erase(std::remove(vec.begin(), vec.end(), ev), vec.end());
+        vec.erase(remove(vec.begin(), vec.end(), ev), vec.end());
 
         // 触发超时处理逻辑（返回 nil，关闭阻塞等）
         handle_blpop_timeout(ev->client_fd);
@@ -351,15 +352,15 @@ public:
 
     if (!blpop_events_by_time.empty()) {
         auto next_expire_time = blpop_events_by_time.begin()->first;
-        auto wait_duration = duration_cast<std::chrono::milliseconds>(next_expire_time - now).count();
-        return std::max<int>(wait_duration, 0); // 防止负数
+        auto wait_duration = duration_cast<chrono::milliseconds>(next_expire_time - now).count();
+        return max<int>(wait_duration, 0); // 防止负数
     }
 
     return -1; // 没有事件
   }
 
 private:
-  void check_xread_block_event(std::string stream_key, std::string stream_id) {
+  void check_xread_block_event(string stream_key, string stream_id) {
     if (xread_block_timer_event == nullptr) {
       return;
     }
@@ -367,7 +368,7 @@ private:
       return;
     }
     if (stream_id > xread_block_timer_event->id) {
-      std::vector<RedisReply> single_stream_reply = AssembleStreamResults(
+      vector<RedisReply> single_stream_reply = AssembleStreamResults(
           xread_block_timer_event->client_fd,
           xread_block_timer_event->stream_key, xread_block_timer_event->id);
       sendReply({makeArray({makeArray(single_stream_reply)})},
@@ -376,19 +377,19 @@ private:
     }
   }
 
-  std::vector<RedisReply> AssembleStreamResults(const int client_fd,
-                                                std::string stream_key,
-                                                std::string start_id) {
+  vector<RedisReply> AssembleStreamResults(const int client_fd,
+                                                string stream_key,
+                                                string start_id) {
     auto results = streams[stream_key].xread(start_id);
-    std::vector<RedisReply> single_stream_reply;
+    vector<RedisReply> single_stream_reply;
     single_stream_reply.emplace_back(makeString(stream_key));
 
-    std::vector<RedisReply> entries_array;
+    vector<RedisReply> entries_array;
     for (const auto &result : results) {
-      std::vector<RedisReply> entry_reply;
+      vector<RedisReply> entry_reply;
       entry_reply.emplace_back(makeString(result.entry_id));
 
-      std::vector<RedisReply> fields_array;
+      vector<RedisReply> fields_array;
       for (const auto &[field, value] : result.fields) {
         fields_array.emplace_back(makeString(field));
         fields_array.emplace_back(makeString(value));
@@ -400,8 +401,8 @@ private:
     single_stream_reply.emplace_back(makeArray(entries_array));
     return single_stream_reply;
   }
-  void exec_multi_queue(std::vector<RedisReply> replies, const int client_fd) {
-    std::vector<RedisReply> totals;
+  void exec_multi_queue(vector<RedisReply> replies, const int client_fd) {
+    vector<RedisReply> totals;
     for (auto reply : replies) {
       auto server_replies = process_command(reply, client_fd);
       for (auto server_reply : server_replies) {
@@ -410,20 +411,20 @@ private:
     }
     sendReply(makeArray(totals), client_fd);
   }
-  std::vector<RedisServerReply> process_command(RedisReply reply,
+  vector<RedisServerReply> process_command(RedisReply reply,
                                                 const int client_fd) {
-    std::vector<RedisReply> &items = reply.elements;
-    std::string command = items.front().strVal;
-    std::transform(command.begin(), command.end(), command.begin(), ::tolower);
-    std::cout << "*****" << std::endl;
-    for (auto item : items) {
-      std::cout << item.strVal << " " << std::endl;
-    }
-    std::cout << "*****" << std::endl;
-    std::vector<RedisServerReply> server_replies;
+    vector<RedisReply> &items = reply.elements;
+    string command = items.front().strVal;
+    transform(command.begin(), command.end(), command.begin(), ::tolower);
+    // cout << "*****" << endl;
+    // for (auto item : items) {
+    //   cout << item.strVal << " " << endl;
+    // }
+    // cout << "*****" << endl;
+    vector<RedisServerReply> server_replies;
     if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" &&
         command != "discard") {
-      std::cout << "in multi mode" << std::endl;
+      cout << "in multi mode" << endl;
       multi_queue[client_fd].emplace_back(reply);
       //   sendReply({makeString("QUEUED")}, client_fd);
       server_replies.emplace_back(makeString("QUEUED"), client_fd);
@@ -438,12 +439,12 @@ private:
     } else if (command == "exec") {
       if (multi_queue.find(client_fd) != multi_queue.end()) {
         if (multi_queue[client_fd].empty()) {
-          std::cout << "multi queue empty" << std::endl;
+          cout << "multi queue empty" << endl;
           multi_queue.erase(client_fd);
           //   sendReply({makeArray({})}, client_fd);
           server_replies.emplace_back(makeArray({}), client_fd);
         } else {
-          std::vector<RedisReply> replys = std::move(multi_queue[client_fd]);
+          vector<RedisReply> replys = std::move(multi_queue[client_fd]);
           multi_queue.erase(client_fd);
           exec_multi_queue(replys, client_fd);
         }
@@ -465,37 +466,37 @@ private:
     } else if (command == "set") {
       if (items.size() < 3)
         return {};
-      std::string key = items[1].strVal;
-      std::string value = items[2].strVal;
+      string key = items[1].strVal;
+      string value = items[2].strVal;
       if (items.size() == 5) {
-        std::transform(items[3].strVal.begin(), items[3].strVal.end(),
+        transform(items[3].strVal.begin(), items[3].strVal.end(),
                        command.begin(), ::tolower);
         if (items[3].strVal == "px") {
           key_elapsed_time_dbs[cur_db].insert_or_assign(
-              key, currentTimeMillis() + std::stoi(items[4].strVal));
+              key, currentTimeMillis() + stoi(items[4].strVal));
         }
       }
       // store[key] = value;
       kvs[cur_db].insert_or_assign(key, value);
-      // std::cout << "is_master = " << is_master << " SET " << key << " " <<
-      // value << std::endl;
+      // cout << "is_master = " << is_master << " SET " << key << " " <<
+      // value << endl;
       if (is_master) {
         // sendReply({makeString("OK")}, client_fd);
         server_replies.emplace_back(makeString("OK"), client_fd);
         for (int fd : slave_fds) {
           //   sendReply({reply}, fd);
           server_replies.emplace_back(reply, fd);
-          // std::cout << "fd " << fd << " Send Slave:" << " KEY " << key << "
-          // VALUE " << value << std::endl;
+          // cout << "fd " << fd << " Send Slave:" << " KEY " << key << "
+          // VALUE " << value << endl;
         }
         processed_bytes += reply.len;
       }
     } else if (command == "get") {
       if (items.size() < 2)
         return {};
-      std::string key = items[1].strVal;
-      // std::cout << "is_master = " << is_master << " GET " << key <<
-      // std::endl;
+      string key = items[1].strVal;
+      // cout << "is_master = " << is_master << " GET " << key <<
+      // endl;
       if (key_elapsed_time_dbs[cur_db].count(key)) {
         if (key_elapsed_time_dbs[cur_db][key] <= currentTimeMillis()) {
           key_elapsed_time_dbs[cur_db].erase(key);
@@ -513,7 +514,7 @@ private:
       server_replies.emplace_back(result, client_fd);
     } else if (command == "config") {
       command = items[1].strVal;
-      std::transform(command.begin(), command.end(), command.begin(),
+      transform(command.begin(), command.end(), command.begin(),
                      ::tolower);
       if (command == "get") {
         auto response = makeArray({makeBulk("dir"), makeBulk(metadata["dir"])});
@@ -521,7 +522,7 @@ private:
         server_replies.emplace_back(response, client_fd);
       }
     } else if (command == "keys") {
-      std::string pattern = items[1].strVal;
+      string pattern = items[1].strVal;
       RedisReply reply;
       reply.type = RedisReplyType::REPLY_ARRAY;
       for (const auto &[key, _] : kvs[cur_db]) {
@@ -532,10 +533,10 @@ private:
       //   sendReply({reply}, client_fd);
       server_replies.emplace_back(reply, client_fd);
     } else if (command == "info") {
-      std::string &arg = items[1].strVal;
-      std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
+      string &arg = items[1].strVal;
+      transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
       if (arg == "replication") {
-        std::ostringstream oss;
+        ostringstream oss;
         if (is_master) {
           oss << "role:master\n";
           oss << "master_replid:" << metadata["master_replid"] << "\n";
@@ -549,23 +550,23 @@ private:
       }
     } else if (command == "replconf") {
       if (items.size() > 1) {
-        std::string &arg = items[1].strVal;
-        std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
+        string &arg = items[1].strVal;
+        transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
         if (arg == "getack") {
           //   sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("ACK"),
-          //                         makeBulk(std::to_string(processed_bytes))})},
+          //                         makeBulk(to_string(processed_bytes))})},
           // client_fd);
           server_replies.emplace_back(
               makeArray({makeBulk("REPLCONF"), makeBulk("ACK"),
-                         makeBulk(std::to_string(processed_bytes))}),
+                         makeBulk(to_string(processed_bytes))}),
               client_fd);
         } else if (arg == "ack") {
-          std::cout << "REPLCONF ACK" << items[2].strVal << std::endl;
+          cout << "REPLCONF ACK" << items[2].strVal << endl;
           if (wait_timer_event != nullptr) {
             if (wait_timer_event->ack_fds.count(client_fd) == 0) {
-              int64_t offset = std::stoll(items[2].strVal);
-              std::cout << "fd = " << client_fd << " offset = " << offset
-                        << std::endl;
+              int64_t offset = stoll(items[2].strVal);
+              cout << "fd = " << client_fd << " offset = " << offset
+                        << endl;
               slave_offsets[client_fd] = offset;
               if (offset >= processed_bytes) {
                 wait_timer_event->ack_fds.insert(client_fd);
@@ -585,7 +586,7 @@ private:
       sendReply({makeString("FULLRESYNC " + metadata["master_replid"] + " " +
                             metadata["master_repl_offset"])},
                 client_fd);
-      const std::string empty_rdb =
+      const string empty_rdb =
           "\x52\x45\x44\x49\x53\x30\x30\x31\x31\xfa\x09\x72\x65\x64\x69\x73"
           "\x2d\x76\x65"
           "\x72\x05\x37\x2e\x32\x2e\x30\xfa\x0a\x72\x65\x64\x69\x73\x2d\x62"
@@ -595,38 +596,38 @@ private:
           "\x64\x2d\x6d\x65\x6d\xc2\xb0\xc4\x10\x00\xfa\x08\x61\x6f\x66\x2d"
           "\x62\x61\x73"
           "\x65\xc0\x00\xff\xf0\x6e\x3b\xfe\xc0\xff\x5a\xa2";
-      std::string content =
-          "$" + std::to_string(empty_rdb.size()) + "\r\n" + empty_rdb;
+      string content =
+          "$" + to_string(empty_rdb.size()) + "\r\n" + empty_rdb;
       if (send(client_fd, content.c_str(), content.size(), 0) !=
           content.size()) {
-        throw std::runtime_error("send RDB failed");
+        throw runtime_error("send RDB failed");
       }
       slave_fds.emplace_back(client_fd);
-      slave_offsets.insert(std::make_pair(client_fd, 0));
-      // std::cout << "slave client fd = " << client_fd << std::endl;
-      std::cout << "slave_fds.size() = " << slave_fds.size() << std::endl;
+      slave_offsets.insert(make_pair(client_fd, 0));
+      // cout << "slave client fd = " << client_fd << endl;
+      cout << "slave_fds.size() = " << slave_fds.size() << endl;
     } else if (command == "wait") {
       if (items.size() < 3)
         return {};
-      int numreplicas = std::stoi(items[1].strVal);
-      int timeout = std::stoi(items[2].strVal);
+      int numreplicas = stoi(items[1].strVal);
+      int timeout = stoi(items[2].strVal);
 
       // Check if there are any pending write operations
       bool has_pending_operations = false;
       for (int fd : slave_fds) {
-        std::cout << "slave_offsets[fd] = " << slave_offsets[fd]
-                  << " processed_bytes = " << processed_bytes << std::endl;
+        cout << "slave_offsets[fd] = " << slave_offsets[fd]
+                  << " processed_bytes = " << processed_bytes << endl;
         if (slave_offsets[fd] < processed_bytes) {
           has_pending_operations = true;
           break;
         }
       }
-      std::cout << "has_pending_operations = " << has_pending_operations
-                << std::endl;
+      cout << "has_pending_operations = " << has_pending_operations
+                << endl;
 
       // If no pending operations, return immediately with 0
       if (!has_pending_operations) {
-        std::cout << "NO PENDING OPERATIONS" << std::endl;
+        cout << "NO PENDING OPERATIONS" << endl;
         // sendReply({makeInterger(slave_fds.size())}, client_fd);
         server_replies.emplace_back(makeInterger(slave_fds.size()), client_fd);
         goto end;
@@ -634,7 +635,7 @@ private:
 
       // Send GETACK to all replicas to check their current offset
       for (int fd : slave_fds) {
-        std::cout << "SEND GETACK TO " << fd << std::endl;
+        cout << "SEND GETACK TO " << fd << endl;
         // sendReply({makeArray({makeBulk("REPLCONF"), makeBulk("GETACK"),
         //                       makeBulk("*")})},
         //           fd);
@@ -653,7 +654,7 @@ private:
       ev.events = EPOLLIN;
       ev.data.fd = timerfd;
       wait_timer_event = new RedisWaitEvent(timerfd, client_fd, numreplicas,
-                                            std::chrono::milliseconds(timeout));
+                                            chrono::milliseconds(timeout));
       wait_timer_event->on_finish = [this](int client_fd) {
         sendReply({makeInterger(wait_timer_event->inacks)}, client_fd);
       };
@@ -661,7 +662,7 @@ private:
     } else if (command == "type") {
       if (items.size() < 2)
         return {};
-      std::string key = items[1].strVal;
+      string key = items[1].strVal;
       if (kvs[cur_db].count(key)) {
         // sendReply({makeString("string")}, client_fd);
         server_replies.emplace_back(makeString("string"), client_fd);
@@ -675,21 +676,21 @@ private:
     } else if (command == "xadd") {
       if (items.size() < 3)
         return {};
-      std::string stream_key = items[1].strVal;
-      std::string id = items[2].strVal;
+      string stream_key = items[1].strVal;
+      string id = items[2].strVal;
       if (kvs[cur_db].count(stream_key) != 0) {
-        throw std::runtime_error("stream key already exists in kvs");
+        throw runtime_error("stream key already exists in kvs");
       }
-      std::string last_timestamp =
+      string last_timestamp =
           streams[stream_key].getLastMillisecondsTime();
-      std::string last_seqno = streams[stream_key].getLastSeqno();
+      string last_seqno = streams[stream_key].getLastSeqno();
       if (id == "*") {
-        std::string timestamp = std::to_string(currentTimeMillis());
+        string timestamp = to_string(currentTimeMillis());
         id = timestamp + "-*";
       }
-      std::string::size_type pos = id.find('-');
-      std::string timestamp = id.substr(0, pos);
-      std::string seqno = id.substr(pos + 1);
+      string::size_type pos = id.find('-');
+      string timestamp = id.substr(0, pos);
+      string seqno = id.substr(pos + 1);
       if (seqno == "0" && timestamp == "0") {
         // sendReply({makeError(
         //               "ERR The ID specified in XADD must be greater than
@@ -715,47 +716,47 @@ private:
 
       if (timestamp == last_timestamp) {
         if (seqno == "*") {
-          int next_seqno = std::stoi(last_seqno) + 1;
+          int next_seqno = stoi(last_seqno) + 1;
           id.pop_back();
-          id += std::to_string(next_seqno);
+          id += to_string(next_seqno);
         }
       } else {
         if (seqno == "*") {
           int next_seqno = timestamp == "0" ? 1 : 0;
           id.pop_back();
-          id += std::to_string(next_seqno);
+          id += to_string(next_seqno);
         }
       }
-      std::vector<std::pair<std::string, std::string>> key_value;
+      vector<pair<string, string>> key_value;
       for (int i = 3; i < items.size(); i += 2) {
         key_value.emplace_back(
-            std::make_pair(items[i].strVal, items[i + 1].strVal));
+            make_pair(items[i].strVal, items[i + 1].strVal));
       }
       streams[stream_key].insert(id, key_value);
       check_xread_block_event(stream_key, id);
       // sendReply({makeBulk(id)}, client_fd);
       server_replies.emplace_back(makeBulk(id), client_fd);
     } else if (command == "xrange") {
-      std::string stream_key = items[1].strVal;
-      std::string start = items[2].strVal;
-      std::string end = items[3].strVal;
+      string stream_key = items[1].strVal;
+      string start = items[2].strVal;
+      string end = items[3].strVal;
       bool is_start = (start == "-") ? true : false;
       bool is_end = (end == "+") ? true : false;
-      if (start.find("-") == std::string::npos) {
+      if (start.find("-") == string::npos) {
         start += "-0";
       }
-      if (not is_end && end.find("-") == std::string::npos) {
-        uint64_t end_no = std::stoll(end);
+      if (not is_end && end.find("-") == string::npos) {
+        uint64_t end_no = stoll(end);
         end_no++;
-        end = std::to_string(end_no) + "-0";
+        end = to_string(end_no) + "-0";
       }
 
       auto results = streams[stream_key].xrange(start, end, is_start, is_end);
-      std::vector<RedisReply> replies;
+      vector<RedisReply> replies;
       for (auto result : results) {
-        std::vector<RedisReply> reply;
+        vector<RedisReply> reply;
         reply.emplace_back(makeString(result.entry_id));
-        std::vector<RedisReply> entries;
+        vector<RedisReply> entries;
         for (const auto &[field, value] : result.fields) {
           entries.emplace_back(makeString(field));
           entries.emplace_back(makeString(value));
@@ -767,14 +768,14 @@ private:
       server_replies.emplace_back(makeArray(replies), client_fd);
     } else if (command == "xread") {
       if (items[1].strVal == "streams") {
-        std::vector<RedisReply> streams_replies;
+        vector<RedisReply> streams_replies;
         int num_args = static_cast<int>((items.size() - 2) / 2);
         for (int i = 0; i < num_args; ++i) {
           int key_index = 2 + i;
           int id_index = 2 + num_args + i;
-          std::string stream_key = items[key_index].strVal;
-          std::string start_id = items[id_index].strVal;
-          std::vector<RedisReply> single_stream_reply =
+          string stream_key = items[key_index].strVal;
+          string start_id = items[id_index].strVal;
+          vector<RedisReply> single_stream_reply =
               AssembleStreamResults(client_fd, stream_key, start_id);
           streams_replies.emplace_back(makeArray(single_stream_reply));
         }
@@ -782,14 +783,14 @@ private:
         // sendReply({makeArray(streams_replies)}, client_fd);
         server_replies.emplace_back(makeArray(streams_replies), client_fd);
       } else if (items[1].strVal == "block") {
-        std::string stream_key = items[4].strVal;
-        std::string start_id = items[5].strVal;
+        string stream_key = items[4].strVal;
+        string start_id = items[5].strVal;
         if (start_id == "$") {
           start_id = streams[stream_key].getLastMillisecondsTime() + "-" +
                      streams[stream_key].getLastSeqno();
         }
         if (not streams[stream_key].findUpperId(start_id)) {
-          int timeout = std::stoi(items[2].strVal);
+          int timeout = stoi(items[2].strVal);
           int timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
           itimerspec it = {
               .it_interval = {0, 0},
@@ -800,13 +801,13 @@ private:
           ev.data.fd = timerfd;
           xread_block_timer_event =
               new RedisXreadBlockEvent(timerfd, client_fd, stream_key, start_id,
-                                       std::chrono::milliseconds(timeout));
+                                       chrono::milliseconds(timeout));
           xread_block_timer_event->on_finish = [this](int client_fd) {
             sendReply({makeNIL()}, client_fd);
           };
           epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);
         } else {
-          std::vector<RedisReply> single_stream_reply =
+          vector<RedisReply> single_stream_reply =
               AssembleStreamResults(client_fd, stream_key, start_id);
           // sendReply({makeArray({makeArray(single_stream_reply)})},
           // client_fd);
@@ -815,7 +816,7 @@ private:
         }
       }
     } else if (command == "incr") {
-      std::string key = items[1].strVal;
+      string key = items[1].strVal;
       if (kvs[cur_db].find(key) != kvs[cur_db].end()) {
         if (not isNumber(kvs[cur_db][key])) {
           // sendReply({makeError("ERR value is not an integer or out of
@@ -826,13 +827,13 @@ private:
               client_fd);
           goto end;
         }
-        int val = std::stoi(kvs[cur_db][key]);
+        int val = stoi(kvs[cur_db][key]);
         val++;
-        kvs[cur_db][key] = std::to_string(val);
+        kvs[cur_db][key] = to_string(val);
         // sendReply({makeInterger(val)}, client_fd);
         server_replies.emplace_back(makeInterger(val), client_fd);
       } else {
-        kvs[cur_db][key] = std::to_string(1);
+        kvs[cur_db][key] = to_string(1);
         // sendReply({makeInterger(1)}, client_fd);
         server_replies.emplace_back(makeInterger(1), client_fd);
       }
@@ -841,27 +842,27 @@ private:
       // sendReply({makeString("OK")}, client_fd);
       server_replies.emplace_back(makeString("OK"), client_fd);
     } else if (command == "rpush") {
-      std::string key = items[1].strVal;
+      string key = items[1].strVal;
       for (int i = 2; i < items.size(); i++) {
-        std::string value = items[i].strVal;
+        string value = items[i].strVal;
         key_lists[key].emplace_back(std::move(value));
       }
       server_replies.emplace_back(makeInterger(key_lists[key].size()),
                                   client_fd);
       check_blpop_event(key);
     } else if (command == "lrange") {
-      std::string key = items[1].strVal;
+      string key = items[1].strVal;
       if (key_lists.find(key) != key_lists.end()) {
-        int start = std::stoi(items[2].strVal);
-        int end = std::stoi(items[3].strVal);
+        int start = stoi(items[2].strVal);
+        int end = stoi(items[3].strVal);
         if (start < 0)
           start += key_lists[key].size();
         if (end < 0)
           end += key_lists[key].size();
-        start = std::max(start, 0);
-        end = std::min(end, static_cast<int>(key_lists[key].size() - 1));
+        start = max(start, 0);
+        end = min(end, static_cast<int>(key_lists[key].size() - 1));
 
-        std::vector<RedisReply> replies;
+        vector<RedisReply> replies;
         for (; start <= end; start++) {
           replies.emplace_back(makeBulk(key_lists[key][start]));
         }
@@ -871,16 +872,16 @@ private:
         server_replies.emplace_back(makeArray({}), client_fd);
       }
     } else if (command == "lpush") {
-      std::string key = items[1].strVal;
+      string key = items[1].strVal;
       for (int i = 2; i < items.size(); i++) {
-        std::string value = items[i].strVal;
+        string value = items[i].strVal;
         key_lists[key].emplace_front(std::move(value));
       }
       server_replies.emplace_back(makeInterger(key_lists[key].size()),
                                   client_fd);
       check_blpop_event(key);
     } else if (command == "llen") {
-      std::string key = items[1].strVal;
+      string key = items[1].strVal;
       if (key_lists.find(key) != key_lists.end()) {
         server_replies.emplace_back(makeInterger(key_lists[key].size()),
                                     client_fd);
@@ -889,17 +890,17 @@ private:
       }
     } else if (command == "lpop") {
       int sz = 1;
-      std::string key = items[1].strVal;
+      string key = items[1].strVal;
       if (items.size() == 3) {
-        sz = std::stoi(items[2].strVal);
-        sz = std::min(sz, static_cast<int>(key_lists[key].size()));
+        sz = stoi(items[2].strVal);
+        sz = min(sz, static_cast<int>(key_lists[key].size()));
       }
       if (sz == 1) {
         server_replies.emplace_back(makeBulk(key_lists[key].front()),
                                     client_fd);
         key_lists[key].pop_front();
       } else if (key_lists.find(key) != key_lists.end()) {
-        std::vector<RedisReply> replies;
+        vector<RedisReply> replies;
         for (int i = 0; i < sz; i++) {
           replies.emplace_back(makeBulk(key_lists[key].front()));
           key_lists[key].pop_front();
@@ -911,15 +912,22 @@ private:
         server_replies.emplace_back(makeBulk(""), client_fd);
       }
     } else if (command == "blpop") {
-      std::string key = items[1].strVal;
-      int timeout = static_cast<int>(std::stof(items[2].strVal) * 1000);
-      auto now = std::chrono::steady_clock::now();
-      std::chrono::steady_clock::time_point expire_at = now + std::chrono::milliseconds(timeout);
+      string key = items[1].strVal;
+      int timeout = static_cast<int>(stof(items[2].strVal) * 1000);
+      auto now = chrono::steady_clock::now();
+      chrono::steady_clock::time_point expire_at = now + chrono::milliseconds(timeout);
       auto* ev = new RedisBlpopEvent{client_fd, key, expire_at};
       blpop_events_by_key[key].push_back(ev);
       if(timeout != 0) {
         blpop_events_by_time.insert({ev->expire_time, ev});
       }
+    } else if(command == "subscribe") {
+      string channel_name = items[1].strVal;
+      if(channel.find(channel_name) == channel.end()) {
+        channel[channel_name] = {};
+      }
+      channel_subscriber[channel_name].emplace_back(client_fd);
+      server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(channel_subscriber[channel_name].size())}));
     }
   end:
     if (client_fd == _master_fd) {
@@ -928,8 +936,8 @@ private:
     return server_replies;
   }
 
-  std::string formatReply(const RedisReply &r) {
-    std::ostringstream oss;
+  string formatReply(const RedisReply &r) {
+    ostringstream oss;
     switch (r.type) {
     case REPLY_STRING:
       oss << "+" << r.strVal << "\r\n";
@@ -956,15 +964,15 @@ private:
     return oss.str();
   }
 
-  void check_blpop_event(std::string key) {
+  void check_blpop_event(string key) {
     if(blpop_events_by_key.find(key) != blpop_events_by_key.end()) {
       auto *ev = blpop_events_by_key[key].front();
       blpop_events_by_time.erase({ev->expire_time, ev});
-      std::string value = key_lists[key].front();
+      string value = key_lists[key].front();
       key_lists[key].pop_front();
       sendReply(makeArray({makeString(key), makeString(value)}), ev->client_fd);
       auto& vec = blpop_events_by_key[key];
-      vec.erase(std::remove(vec.begin(), vec.end(), ev), vec.end());
+      vec.erase(remove(vec.begin(), vec.end(), ev), vec.end());
       delete ev;
     }
   }
@@ -973,7 +981,7 @@ private:
     sendReply(makeNIL(), client_fd);
   }
 
-  RedisReply makeBulk(const std::string &s) {
+  RedisReply makeBulk(const string &s) {
     RedisReply r;
     r.type = REPLY_BULK;
     r.strVal = s;
@@ -994,21 +1002,21 @@ private:
     return r;
   }
 
-  RedisReply makeArray(const std::vector<RedisReply> &elements) {
+  RedisReply makeArray(const vector<RedisReply> &elements) {
     RedisReply r;
     r.type = REPLY_ARRAY;
     r.elements = elements;
     return r;
   }
 
-  RedisReply makeString(const std::string &s) {
+  RedisReply makeString(const string &s) {
     RedisReply r;
     r.type = REPLY_STRING;
     r.strVal = s;
     return r;
   }
 
-  RedisReply makeError(const std::string &s) {
+  RedisReply makeError(const string &s) {
     RedisReply r;
     r.type = REPLY_ERROR;
     r.strVal = s;
