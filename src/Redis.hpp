@@ -427,7 +427,7 @@ private:
       if(command == "ping") {
         server_replies.emplace_back(makeArray({makeBulk("PONG"), makeBulk("")}), client_fd);
       } else {
-        server_replies.emplace_back(makeError("ERR Can't execute " + command + ": only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context"), client_fd);
+        server_replies.emplace_back(makeError("ERR Can't execute \'" + command + "\': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context"), client_fd);
       }
     } else if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" &&
         command != "discard") {
