@@ -31,6 +31,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <algorithm>
 #include <set>
 using namespace std;
 
@@ -926,7 +927,11 @@ private:
       if(channel.find(channel_name) == channel.end()) {
         channel[channel_name] = {};
       }
-      channel_subscriber[channel_name].emplace_back(client_fd);
+      if(channel_subscriber.find(channel_name) == channel_subscriber.end()) {
+        channel_subscriber[channel_name].emplace_back(client_fd);
+      } else if(find(channel_subscriber[channel_name].begin(), channel_subscriber[channel_name].end(), client_fd) == channel_subscriber[channel_name].end()){
+        channel_subscriber[channel_name].emplace_back(client_fd);
+      }
       server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(channel_subscriber[channel_name].size())}), client_fd);
     }
   end:
