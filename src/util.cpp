@@ -1,9 +1,11 @@
+#include <cctype>
 #include <string>
 #include <iostream>
 #include <fcntl.h>
 #include <chrono>
 #include <cstdint>
 #include <unordered_set>
+#include <algorithm>
 
 
 bool matchPattern(const std::string &pattern, const std::string &text) {
@@ -61,7 +63,8 @@ bool isNumber(const std::string& str) {
 }
 
 
-bool unsupport_command(const std::string& cmd) {
+bool unsupport_command(std::string& cmd) {
+    transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
     static const std::unordered_set<std::string> commands = {
         "PSUBSCRIBE", "SUBSCRIBE", "PUNSUBSCRIBE", "UNSUBSCRIBE", "PING", "QUIT", "RESET"
     };

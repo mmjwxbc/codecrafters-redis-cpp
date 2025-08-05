@@ -935,6 +935,8 @@ private:
       }
       client_subscribe_channels[client_fd].insert(channel_name);
       server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(client_subscribe_channels[client_fd].size())}), client_fd);
+    } else if(command == "publish") {
+      
     }
   end:
     if (client_fd == _master_fd) {
