@@ -27,6 +27,7 @@
 #include <sys/socket.h>
 #include <sys/timerfd.h>
 #include <sys/types.h>
+#include <type_traits>
 #include <unistd.h>
 #include <unordered_map>
 #include <utility>
@@ -423,7 +424,7 @@ private:
     // }
     // cout << "*****" << endl;
     vector<RedisServerReply> server_replies;
-    if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end() && !unsupport_command(command)) {
+    if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end() && unsupport_command(command) == false) {
       if(command == "ping") {
         server_replies.emplace_back(makeArray({makeBulk("PONG"), makeBulk("")}), client_fd);
       } else {
@@ -936,7 +937,12 @@ private:
       client_subscribe_channels[client_fd].insert(channel_name);
       server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(client_subscribe_channels[client_fd].size())}), client_fd);
     } else if(command == "publish") {
-      
+      string channel_name = items[1].strVal;
+      int size = 0;
+      if(channel.find(channel_name) != channel.end()) {
+        size = channel[channel_name].size();
+      }
+      server_replies.emplace_back(makeInterger(size), client_fd);
     }
   end:
     if (client_fd == _master_fd) {
