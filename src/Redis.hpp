@@ -425,7 +425,7 @@ private:
     vector<RedisServerReply> server_replies;
     cout << "client fd = " << client_fd << " " << items[0].strVal << "in sub = " << (client_subscribe_channels.find(client_fd) != client_subscribe_channels.end()) <<  endl;
     if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end()) {
-      if(unsupport_command(command) == false) && { 
+      if(unsupport_command(command) == false) { 
         server_replies.emplace_back(makeError("ERR Can't execute \'" + command + "\': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context"), client_fd);
       } else if(command == "ping") {
         server_replies.emplace_back(makeArray({makeBulk("PONG"), makeBulk("")}), client_fd);
