@@ -931,6 +931,7 @@ private:
       }
     } else if(command == "subscribe") {
       string channel_name = items[1].strVal;
+      cout << channel_name << endl;
       if(channel.find(channel_name) == channel.end()) {
         channel[channel_name] = {};
       }
