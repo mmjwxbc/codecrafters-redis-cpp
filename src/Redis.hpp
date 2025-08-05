@@ -424,6 +424,7 @@ private:
     // }
     // cout << "*****" << endl;
     vector<RedisServerReply> server_replies;
+    cout << items[1].strVal << endl;
     if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end() && unsupport_command(command) == false) {
       if(command == "ping") {
         server_replies.emplace_back(makeArray({makeBulk("PONG"), makeBulk("")}), client_fd);
@@ -931,7 +932,6 @@ private:
       }
     } else if(command == "subscribe") {
       string channel_name = items[1].strVal;
-      cout << channel_name << endl;
       if(channel.find(channel_name) == channel.end()) {
         channel[channel_name] = {};
       }
