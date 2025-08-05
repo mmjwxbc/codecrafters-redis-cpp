@@ -943,7 +943,7 @@ private:
       if(channel_subscribers.find(channel_name) != channel_subscribers.end()) {
         size = channel_subscribers[channel_name].size();
         for(int cli_fd : channel_subscribers[channel_name]) {
-          server_replies.emplace_back(makeArray({makeBulk("message"), makeBulk(channel_name), makeBulk(content)}), channel_subscribers[channel_name][i]);
+          server_replies.emplace_back(makeArray({makeBulk("message"), makeBulk(channel_name), makeBulk(content)}), cli_fd);
         }
       }
       server_replies.emplace_back(makeInterger(size), client_fd);
