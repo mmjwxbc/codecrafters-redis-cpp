@@ -62,7 +62,7 @@ private:
   unordered_map<string, vector<RedisBlpopEvent*>> blpop_events_by_key;
   set<pair<chrono::steady_clock::time_point, RedisBlpopEvent*>> blpop_events_by_time;
   unordered_map<string, vector<string>> channel;
-  unordered_map<string, vector<int>> channel_subscriber;
+  unordered_map<int, set<string>> client_subscribe_channels;
 
 
 public:
@@ -927,12 +927,8 @@ private:
       if(channel.find(channel_name) == channel.end()) {
         channel[channel_name] = {};
       }
-      if(channel_subscriber.find(channel_name) == channel_subscriber.end()) {
-        channel_subscriber[channel_name].emplace_back(client_fd);
-      } else if(find(channel_subscriber[channel_name].begin(), channel_subscriber[channel_name].end(), client_fd) == channel_subscriber[channel_name].end()){
-        channel_subscriber[channel_name].emplace_back(client_fd);
-      }
-      server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(channel_subscriber[channel_name].size())}), client_fd);
+      client_subscribe_channels[client_fd].insert(channel_name);
+      server_replies.emplace_back(makeArray({makeBulk("subscribe"), makeBulk(channel_name), makeInterger(client_subscribe_channels[client_fd].size())}), client_fd);
     }
   end:
     if (client_fd == _master_fd) {
