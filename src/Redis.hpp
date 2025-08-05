@@ -427,10 +427,13 @@ private:
     if(client_subscribe_channels.find(client_fd) != client_subscribe_channels.end()) {
       if(unsupport_command(command) == false) { 
         server_replies.emplace_back(makeError("ERR Can't execute \'" + command + "\': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context"), client_fd);
+        goto end;
       } else if(command == "ping") {
         server_replies.emplace_back(makeArray({makeBulk("pong"), makeBulk("")}), client_fd);
+        goto end;
       }
-    } else if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" &&
+    }
+    if (multi_queue.find(client_fd) != multi_queue.end() && command != "exec" &&
         command != "discard") {
       cout << "in multi mode" << endl;
       multi_queue[client_fd].emplace_back(reply);
