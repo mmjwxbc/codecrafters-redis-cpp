@@ -1036,8 +1036,13 @@ private:
         server_replies.emplace_back(makeNIL(), client_fd);
       } else {
         auto &member_score = zsets[set_name].member_score;
-        string member = 
-        server_replies.emplace_back(makeInterger(zsets[set_name].member_score.size()), client_fd);
+        string member = items[2].strVal;
+        if(member_score.find(member) != member_score.end()) {
+          double score = member_score[member];
+          server_replies.emplace_back(makeBulk(to_string(score)), client_fd);
+        } else {
+          server_replies.emplace_back(makeNIL(), client_fd);
+        }
       }
     }
   end:
