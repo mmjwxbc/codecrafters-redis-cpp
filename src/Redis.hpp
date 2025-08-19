@@ -963,9 +963,9 @@ private:
     } else if(command == "zadd") {
       string set_name = items[1].strVal;
       int ret_val = 0;
-      string member = items[2].strVal;
+      string member = items[3].strVal;
       char *endptr;
-      double score = strtod(items[3].strVal.c_str(), &endptr);
+      double score = strtod(items[2].strVal.c_str(), &endptr);
       if(zsets.find(set_name) != zsets.end()) {
         auto &set = zsets[set_name];
         if(set.member_score.find(member) != set.member_score.end()) {
@@ -980,6 +980,7 @@ private:
         auto &set = zsets[set_name];
         set.member_score.insert_or_assign(member, score);
         set.score_member.insert(make_pair(score, member));
+        ret_val = 1;
       }
       server_replies.emplace_back(makeInterger(ret_val), client_fd);
 
