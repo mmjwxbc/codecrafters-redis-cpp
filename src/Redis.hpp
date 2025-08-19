@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <iterator>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <optional>
@@ -983,7 +984,18 @@ private:
         ret_val = 1;
       }
       server_replies.emplace_back(makeInterger(ret_val), client_fd);
-
+    } else if(command == "zrank") {
+      string set_name = items[1].strVal;
+      int ret_val = -1;
+      string member = items[2].strVal;
+      if(zsets.find(set_name) != zsets.end()) {
+        auto &set = zsets[set_name];
+        if(set.member_score.find(member) != set.member_score.end()) {
+          auto it = set.score_member.find(make_pair(set.member_score[member], member));
+          ret_val = distance(set.score_member.begin(), it);
+        }
+      }
+      server_replies.emplace_back(makeInterger(ret_val), client_fd);
     }
   end:
     if (client_fd == _master_fd) {
