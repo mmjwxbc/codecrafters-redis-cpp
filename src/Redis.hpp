@@ -995,7 +995,16 @@ private:
           ret_val = distance(set.score_member.begin(), it);
         }
       }
+      if(ret_val == -1) {
+      server_replies.emplace_back(makeNIL(), client_fd);
+      } else {
       server_replies.emplace_back(makeInterger(ret_val), client_fd);
+
+      }
+    } else if(command == "zrange") {
+      string set_name = items[1].strVal;
+      int l = items[2].intVal, r = items[3].intVal;
+
     }
   end:
     if (client_fd == _master_fd) {
