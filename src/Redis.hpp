@@ -8,6 +8,7 @@
 #include "Stream.hpp"
 #include "TimerEvent.hpp"
 #include "util.hpp"
+#include "RedisSet.hpp"
 #include <algorithm>
 #include <arpa/inet.h>
 #include <cctype>
@@ -63,6 +64,7 @@ private:
   set<pair<chrono::steady_clock::time_point, RedisBlpopEvent*>> blpop_events_by_time;
   unordered_map<string, set<int>> channel_subscribers;
   unordered_map<int, set<string>> client_subscribe_channels;
+  unordered_map<string, SortedSet> zsets;
 
 
 public:
@@ -958,6 +960,28 @@ private:
         channel_subscribers[channel_name].erase(client_fd);
       }
       server_replies.emplace_back(makeArray({makeBulk("unsubscribe"), makeBulk(channel_name), makeInterger(client_subscribe_channels[client_fd].size())}), client_fd);
+    } else if(command == "zadd") {
+      string set_name = items[1].strVal;
+      int ret_val = 0;
+      string member = items[2].strVal;
+      char *endptr;
+      double score = strtod(items[3].strVal.c_str(), &endptr);
+      if(zsets.find(set_name) != zsets.end()) {
+        auto &set = zsets[set_name];
+        if(set.member_score.find(member) != set.member_score.end()) {
+          ret_val = 0;
+        } else {
+          ret_val = 1;
+        }
+        set.member_score.insert_or_assign(member, score);
+        set.score_member.insert(make_pair(score, member));
+      } else {
+        zsets.emplace(set_name, SortedSet{});
+        auto &set = zsets[set_name];
+        set.member_score.insert_or_assign(member, score);
+        set.score_member.insert(make_pair(score, member));
+      }
+      server_replies.emplace_back(makeInterger(ret_val), client_fd);
 
     }
   end:

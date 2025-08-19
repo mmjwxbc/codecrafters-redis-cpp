@@ -1,12 +1,11 @@
 // RedisWaitEvent.hpp
-#ifndef REDIS_WAIT_EVENT_HPP
-#define REDIS_WAIT_EVENT_HPP
+#ifndef REDIS_TIME_EVENT_HPP
+#define REDIS_TIME_EVENT_HPP
 
 #include <chrono>
 #include <functional>
 #include <unordered_set>
 #include <string>
-#include <queue>
 
 
 struct RedisWaitEvent {
