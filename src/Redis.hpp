@@ -1039,11 +1039,27 @@ private:
         string member = items[2].strVal;
         if(member_score.find(member) != member_score.end()) {
           double score = member_score[member];
-          server_replies.emplace_back(makeBulk(to_string(score)), client_fd);
+          std::stringstream ss;
+          ss << std::setprecision(17) << score;
+          server_replies.emplace_back(makeBulk(ss.str()), client_fd);
         } else {
           server_replies.emplace_back(makeNIL(), client_fd);
         }
       }
+    } else if(command == "zrem") {
+      string set_name = items[1].strVal;
+      int ret_val = 0;
+      if(zsets.find(set_name) != zsets.end()) {
+        auto &member_score = zsets[set_name].member_score;
+        auto &score_member = zsets[set_name].score_member;
+        string member = items[2].strVal;
+        if(member_score.find(member) != member_score.end()) {
+          score_member.erase(make_pair(member_score[member], member));
+          member_score.erase(member);
+          ret_val = 1;
+        }
+      } 
+      server_replies.emplace_back(makeInterger(ret_val), client_fd);
     }
   end:
     if (client_fd == _master_fd) {
