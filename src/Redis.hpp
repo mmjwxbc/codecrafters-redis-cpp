@@ -1002,8 +1002,8 @@ private:
       }
     } else if(command == "zrange") {
       string set_name = items[1].strVal;
-      int start = items[2].intVal, end = items[3].intVal;
-      cout << set_name << " " << start << " " << end << endl;
+      int start = stoi(items[2].strVal);
+      int end = stoi(items[3].strVal);
       if(zsets.find(set_name) == zsets.end()) {
         server_replies.emplace_back(makeArray({}), client_fd);
       } else {
@@ -1031,7 +1031,13 @@ private:
         server_replies.emplace_back(makeInterger(zsets[set_name].member_score.size()), client_fd);
       }
     } else if(command == "zscore") {
-
+      string set_name = items[1].strVal;
+      if(zsets.find(set_name) == zsets.end()) {
+        server_replies.emplace_back(makeNIL(), client_fd);
+      } else {
+        auto &member_score = zsets[set_name].member_score;
+        server_replies.emplace_back(makeInterger(zsets[set_name].member_score.size()), client_fd);
+      }
     }
   end:
     if (client_fd == _master_fd) {
