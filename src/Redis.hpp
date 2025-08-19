@@ -1003,6 +1003,7 @@ private:
     } else if(command == "zrange") {
       string set_name = items[1].strVal;
       int start = items[2].intVal, end = items[3].intVal;
+      cout << set_name << " " << start << " " << end << endl;
       if(zsets.find(set_name) == zsets.end()) {
         server_replies.emplace_back(makeArray({}), client_fd);
       } else {
@@ -1022,6 +1023,14 @@ private:
         }
         server_replies.emplace_back(makeArray(reply), client_fd);
       }
+    } else if(command == "zcard") {
+      string set_name = items[1].strVal;
+      if(zsets.find(set_name) == zsets.end()) {
+        server_replies.emplace_back(makeInterger(0), client_fd);
+      } else {
+        server_replies.emplace_back(makeInterger(zsets[set_name].member_score.size()), client_fd);
+      }
+    } else if(command == "zscore") {
 
     }
   end:
