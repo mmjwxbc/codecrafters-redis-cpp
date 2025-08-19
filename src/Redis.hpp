@@ -999,11 +999,29 @@ private:
       server_replies.emplace_back(makeNIL(), client_fd);
       } else {
       server_replies.emplace_back(makeInterger(ret_val), client_fd);
-
       }
     } else if(command == "zrange") {
       string set_name = items[1].strVal;
-      int l = items[2].intVal, r = items[3].intVal;
+      int start = items[2].intVal, end = items[3].intVal;
+      if(zsets.find(set_name) == zsets.end()) {
+        server_replies.emplace_back(makeArray({}), client_fd);
+      } else {
+        auto &score_member = zsets[set_name].score_member;
+        if (start < 0)
+          start += score_member.size();
+        if (end < 0)
+          end += score_member.size();
+        start = max(start, 0);
+        end = min(end, static_cast<int>(score_member.size() - 1));
+        int i = 0;
+        vector<RedisReply> reply;
+        for(auto iter = score_member.begin(); iter != score_member.end() && i < end; iter++, i++) {
+          if(i >= start) {
+            reply.emplace_back(makeBulk(iter->second));
+          }
+        }
+        server_replies.emplace_back(makeArray(reply), client_fd);
+      }
 
     }
   end:
