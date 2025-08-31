@@ -104,11 +104,10 @@ int main(int argc, char **argv) {
         client_ev.data.fd = cfd;
         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, cfd, &client_ev);
       } else if (fd == wait_timerfd) {
-
         RedisWaitEvent *timer_event = redis.get_wait_timer_event();
         if (timer_event != nullptr) {
           cout << "blpop block timeout send nil" << endl;
-          timer_event->on_finish(timer_event->client_fd);
+          // timer_event->on_finish(timer_event->client_fd);
           redis.clear_wait_timer_event();
         }
         epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
