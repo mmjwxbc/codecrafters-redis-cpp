@@ -1094,7 +1094,7 @@ private:
       string set_name = items[1].strVal;
 
       if(zsets.find(set_name) == zsets.end()) {
-        server_replies.emplace_back(makeNilArray(), client_fd);
+        server_replies.emplace_back(makeArray({makeNilArray()}), client_fd);
       } else {
         auto &member_score = zsets[set_name].member_score;
         string member = items[2].strVal;
@@ -1108,7 +1108,7 @@ private:
 
           server_replies.emplace_back(makeArray({makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())})}), client_fd);
         } else {
-          server_replies.emplace_back(makeNilArray(), client_fd);
+            server_replies.emplace_back(makeArray({makeNilArray()}), client_fd);
         }
       }
 
