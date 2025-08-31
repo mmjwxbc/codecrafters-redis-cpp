@@ -933,9 +933,9 @@ private:
       auto now = chrono::steady_clock::now();
       chrono::steady_clock::time_point expire_at = now + chrono::milliseconds(timeout);
       auto* ev = new RedisBlpopEvent{client_fd, key, expire_at};
-      // ev->on_finish = [this](int client_fd) {
-      //       sendReply(makeNilArray(), client_fd);
-      //     };
+      ev->on_finish = [this](int client_fd) {
+            sendReply(makeNilArray(), client_fd);
+          };
       blpop_events_by_key[key].push_back(ev);
       if(timeout != 0) {
         blpop_events_by_time.insert({ev->expire_time, ev});

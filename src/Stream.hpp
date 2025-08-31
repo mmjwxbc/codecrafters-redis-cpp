@@ -151,18 +151,14 @@ public:
 
     std::vector<RedisStreamEntry> xrange(std::string start, std::string end, bool is_start, bool is_end) {
         std::vector<RedisStreamEntry> result;
-        std::cout << "start = " << start << std::endl;
-        std::cout << "end = " << end << std::endl;
         auto beginIt = entry_key_value.lower_bound(start);
         auto endIt = entry_key_value.upper_bound(end);
         if(is_start) beginIt = entry_key_value.begin();
         if(is_end) endIt = entry_key_value.end();
 
         for (auto it = beginIt; it != endIt; ++it) {
-            std::cout << "it timestamp = " << it->first << std::endl;
             result.insert(result.end(), it->second.begin(), it->second.end());
         }
-        std::cout << "xrange size = " << result.size() << std::endl;
         return result;
     }
 
@@ -172,10 +168,8 @@ public:
 
 
         for (auto it = beginIt; it != entry_key_value.end(); ++it) {
-            std::cout << "it timestamp = " << it->first << std::endl;
             result.insert(result.end(), it->second.begin(), it->second.end());
         }
-        std::cout << "xrange size = " << result.size() << std::endl;
         return result;
     }
 
