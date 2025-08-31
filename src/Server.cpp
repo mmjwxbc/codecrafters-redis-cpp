@@ -107,6 +107,7 @@ int main(int argc, char **argv) {
 
         RedisWaitEvent *timer_event = redis.get_wait_timer_event();
         if (timer_event != nullptr) {
+          cout << "blpop block timeout send nil" << endl;
           timer_event->on_finish(timer_event->client_fd);
           redis.clear_wait_timer_event();
         }

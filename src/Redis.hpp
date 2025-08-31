@@ -819,7 +819,7 @@ private:
               new RedisXreadBlockEvent(timerfd, client_fd, stream_key, start_id,
                                        chrono::milliseconds(timeout));
           xread_block_timer_event->on_finish = [this](int client_fd) {
-            sendReply({makeNIL()}, client_fd);
+            sendReply(makeNilArray(), client_fd);
           };
           epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timerfd, &ev);
         } else {
@@ -933,6 +933,9 @@ private:
       auto now = chrono::steady_clock::now();
       chrono::steady_clock::time_point expire_at = now + chrono::milliseconds(timeout);
       auto* ev = new RedisBlpopEvent{client_fd, key, expire_at};
+      ev->on_finish = [this](int client_fd) {
+            sendReply(makeNilArray(), client_fd);
+          };
       blpop_events_by_key[key].push_back(ev);
       if(timeout != 0) {
         blpop_events_by_time.insert({ev->expire_time, ev});
@@ -1099,6 +1102,9 @@ private:
     case REPLY_NIL:
       oss << "$-1\r\n";
       break;
+    case REPLY_NIL_ARRAY:
+      oss << "*-1\r\n";
+      break;
     case REPLY_ARRAY:
       oss << "*" << r.elements.size() << "\r\n";
       for (const auto &sub : r.elements) {
@@ -1165,6 +1171,12 @@ private:
     RedisReply r;
     r.type = REPLY_ERROR;
     r.strVal = s;
+    return r;
+  }
+
+  RedisReply makeNilArray() {
+    RedisReply r;
+    r.type = REPLY_NIL_ARRAY;
     return r;
   }
 };

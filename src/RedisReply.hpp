@@ -9,7 +9,8 @@ enum RedisReplyType {
     REPLY_INTEGER,
     REPLY_ARRAY,
     REPLY_NIL,
-    REPLY_ERROR
+    REPLY_ERROR,
+    REPLY_NIL_ARRAY
 };
 
 struct RedisReply {

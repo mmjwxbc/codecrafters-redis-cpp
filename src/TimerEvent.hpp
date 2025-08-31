@@ -63,7 +63,7 @@ struct RedisBlpopEvent {
     std::chrono::steady_clock::time_point expire_time;
 
 
-    // std::function<void(int)> on_finish;
+    std::function<void(int)> on_finish;
 
     RedisBlpopEvent(int client_fd,
                    std::string list_key,
