@@ -1113,7 +1113,7 @@ private:
             ss_latitude << std::setprecision(6) << latitude;
 
             // server_replies.emplace_back(makeArray({makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())})}), client_fd);
-            reply.emplace_back(makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())}));
+            reply.emplace_back(makeArray({makeBulk(ss_latitude.str()), makeBulk(ss_longitude.str())}));
           } else {
               // server_replies.emplace_back(makeArray({makeNilArray()}), client_fd);
               reply.emplace_back(makeNilArray());
