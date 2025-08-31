@@ -1074,18 +1074,19 @@ private:
           server_replies.emplace_back(makeError(formatErrorLonLat(longitude, latitude)), client_fd);
         }
       } else {
+        uint64_t score = encode(latitude, longitude);
         if(zsets.find(set_name) != zsets.end()) {
           auto &set = zsets[set_name];
           if(set.member_score.find(name) != set.member_score.end()) {
           } else {
           }
-          set.member_score.insert_or_assign(name, 0);
-          set.score_member.insert(make_pair(0, name));
+          set.member_score.insert_or_assign(name, score);
+          set.score_member.insert(make_pair(score, name));
         } else {
           zsets.emplace(set_name, SortedSet{});
           auto &set = zsets[set_name];
-          set.member_score.insert_or_assign(name, 0);
-          set.score_member.insert(make_pair(0, name));
+          set.member_score.insert_or_assign(name, score);
+          set.score_member.insert(make_pair(score, name));
         }
         server_replies.emplace_back(makeInterger(1), client_fd);
       }
