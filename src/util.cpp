@@ -8,7 +8,10 @@
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
+#include <cmath>
+#include <iostream>
 
+constexpr double EARTH_RADIUS_IN_METERS = 6372797.560856;
 bool matchPattern(const std::string &pattern, const std::string &text) {
     size_t p = 0, t = 0, star = std::string::npos, match = 0;
 
@@ -89,22 +92,29 @@ std::string formatErrorLonLat(double lon, double lat) {
     return oss.str();
 }
 
-double geohashGetLatDistance(double lat1d, double lat2d) {
-    return EARTH_RADIUS_IN_METERS * fabs(deg_rad(lat2d) - deg_rad(lat1d));
+
+
+inline double deg_rad(double deg) {
+    return deg * M_PI / 180.0;
 }
 
-/* Calculate distance using haversine great circle distance formula. */
+double geohashGetLatDistance(double lat1d, double lat2d) {
+    return EARTH_RADIUS_IN_METERS * std::fabs(deg_rad(lat2d) - deg_rad(lat1d));
+}
+
 double geohashGetDistance(double lon1d, double lat1d, double lon2d, double lat2d) {
-    double lat1r, lon1r, lat2r, lon2r, u, v, a;
-    lon1r = deg_rad(lon1d);
-    lon2r = deg_rad(lon2d);
-    v = sin((lon2r - lon1r) / 2);
-    /* if v == 0 we can avoid doing expensive math when lons are practically the same */
-    if (v == 0.0)
+    double lon1r = deg_rad(lon1d);
+    double lon2r = deg_rad(lon2d);
+    double v = std::sin((lon2r - lon1r) / 2.0);
+
+    if (v == 0.0) {
         return geohashGetLatDistance(lat1d, lat2d);
-    lat1r = deg_rad(lat1d);
-    lat2r = deg_rad(lat2d);
-    u = sin((lat2r - lat1r) / 2);
-    a = u * u + cos(lat1r) * cos(lat2r) * v * v;
-    return 2.0 * EARTH_RADIUS_IN_METERS * asin(sqrt(a));
+    }
+
+    double lat1r = deg_rad(lat1d);
+    double lat2r = deg_rad(lat2d);
+    double u = std::sin((lat2r - lat1r) / 2.0);
+
+    double a = u * u + std::cos(lat1r) * std::cos(lat2r) * v * v;
+    return 2.0 * EARTH_RADIUS_IN_METERS * std::asin(std::sqrt(a));
 }
