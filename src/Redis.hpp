@@ -1099,7 +1099,7 @@ private:
         vector<RedisReply> reply;
         auto &member_score = zsets[set_name].member_score;
         for(size_t i = 2; i < items.size(); i++) {
-          string member = items[2].strVal;
+          string member = items[i].strVal;
           if(member_score.find(member) != member_score.end()) {
             double score = member_score[member];
             auto [longitude, latitude] = decode(score);
