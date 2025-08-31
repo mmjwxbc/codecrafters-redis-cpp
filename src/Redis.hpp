@@ -1064,7 +1064,7 @@ private:
       } 
       server_replies.emplace_back(makeInterger(ret_val), client_fd);
     } else if(command == "geoadd") {
-      // string command = items[1].strVal;
+      string set_name = items[1].strVal;
       double longitude = strtod(items[2].strVal.c_str(), NULL);
       double latitude = strtod(items[3].strVal.c_str(), NULL);
       string name = items[4].strVal;
@@ -1074,7 +1074,6 @@ private:
           server_replies.emplace_back(makeError(formatErrorLonLat(longitude, latitude)), client_fd);
         }
       } else {
-        string set_name = "geometry";
         if(zsets.find(set_name) != zsets.end()) {
           auto &set = zsets[set_name];
           if(set.member_score.find(name) != set.member_score.end()) {
