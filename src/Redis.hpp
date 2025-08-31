@@ -1121,7 +1121,7 @@ private:
           snprintf(buf, sizeof(buf), "%.17g", latitude);
           std::string latStr(buf);
 
-          reply.emplace_back(makeArray({makeBulk(lonStr), makeBulk(latStr)}));
+          reply.emplace_back(makeArray({makeBulk(latStr), makeBulk(lonStr)}));
           } else {
               // server_replies.emplace_back(makeArray({makeNilArray()}), client_fd);
               reply.emplace_back(makeNilArray());
