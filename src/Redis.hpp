@@ -1108,9 +1108,9 @@ private:
             double score = member_score[member];
             auto [longitude, latitude] = decode(score);
             std::stringstream ss_longitude;
-            ss_longitude << std::setprecision(6) << longitude;
+            ss_longitude << std::setprecision(17) << longitude;
             std::stringstream ss_latitude;
-            ss_latitude << std::setprecision(6) << latitude;
+            ss_latitude << std::setprecision(17) << latitude;
 
             // server_replies.emplace_back(makeArray({makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())})}), client_fd);
             reply.emplace_back(makeArray({makeBulk(ss_latitude.str()), makeBulk(ss_longitude.str())}));
