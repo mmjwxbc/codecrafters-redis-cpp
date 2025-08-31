@@ -1094,7 +1094,11 @@ private:
       string set_name = items[1].strVal;
 
       if(zsets.find(set_name) == zsets.end()) {
-        server_replies.emplace_back(makeArray({makeNilArray()}), client_fd);
+        vector<RedisReply> reply;
+        for(size_t i = 2; i < items.size(); i++) {
+          reply.emplace_back(makeNilArray());
+        }
+        server_replies.emplace_back(makeArray(reply), client_fd);
       } else {
         vector<RedisReply> reply;
         auto &member_score = zsets[set_name].member_score;
