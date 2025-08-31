@@ -6,7 +6,8 @@
 #include <cstdint>
 #include <unordered_set>
 #include <algorithm>
-
+#include <sstream>
+#include <iomanip>
 
 bool matchPattern(const std::string &pattern, const std::string &text) {
     size_t p = 0, t = 0, star = std::string::npos, match = 0;
@@ -68,4 +69,22 @@ bool unsupport_command(const std::string& cmd) {
         "psubscribe", "subscribe", "punsubscribe", "unsubscribe", "ping", "quit", "reset"
     };
     return commands.count(cmd) > 0;
+}
+
+int check_longitude_latitude(double longitude, double latitude) {
+    int error_ret = 0;
+    if(longitude < -180 || longitude > 180) {
+        error_ret += 1;
+    }
+    if(latitude < -85.05112878 || latitude > 85.05112878) {
+        error_ret += 2;
+    }
+    return error_ret;
+}
+
+std::string formatErrorLonLat(double lon, double lat) {
+    // (error) ERR invalid longitude,latitude pair 180.000000,90.000000
+    std::ostringstream oss;
+    oss <<  "ERR invalid longitude,latitude pair "<<std::fixed << std::setprecision(6) << lon << "," << lat;
+    return oss.str();
 }

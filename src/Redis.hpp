@@ -1060,6 +1060,19 @@ private:
         }
       } 
       server_replies.emplace_back(makeInterger(ret_val), client_fd);
+    } else if(command == "geoadd") {
+      string comand = items[1].strVal;
+      double longitude = strtod(items[2].strVal.c_str(), NULL);
+      double latitude = strtod(items[3].strVal.c_str(), NULL);
+      string name = items[4].strVal;
+      int ret = check_longitude_latitude(longitude, latitude);
+      if(ret != 0) {
+        if(ret == 1 || ret == 2) {
+          server_replies.emplace_back(makeError(formatErrorLonLat(longitude, latitude)), client_fd);
+        }
+      } else {
+        server_replies.emplace_back(makeInterger(1), client_fd);
+      }
     }
   end:
     if (client_fd == _master_fd) {
