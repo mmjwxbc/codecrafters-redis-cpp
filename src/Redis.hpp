@@ -1096,20 +1096,26 @@ private:
       if(zsets.find(set_name) == zsets.end()) {
         server_replies.emplace_back(makeArray({makeNilArray()}), client_fd);
       } else {
+        vector<RedisReply> reply;
         auto &member_score = zsets[set_name].member_score;
-        string member = items[2].strVal;
-        if(member_score.find(member) != member_score.end()) {
-          double score = member_score[member];
-          auto [longitude, latitude] = decode(score);
-          std::stringstream ss_longitude;
-          ss_longitude << std::setprecision(6) << longitude;
-          std::stringstream ss_latitude;
-          ss_longitude << std::setprecision(6) << latitude;
+        for(size_t i = 2; i < items.size(); i++) {
+          string member = items[2].strVal;
+          if(member_score.find(member) != member_score.end()) {
+            double score = member_score[member];
+            auto [longitude, latitude] = decode(score);
+            std::stringstream ss_longitude;
+            ss_longitude << std::setprecision(6) << longitude;
+            std::stringstream ss_latitude;
+            ss_latitude << std::setprecision(6) << latitude;
 
-          server_replies.emplace_back(makeArray({makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())})}), client_fd);
-        } else {
-            server_replies.emplace_back(makeArray({makeNilArray()}), client_fd);
+            // server_replies.emplace_back(makeArray({makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())})}), client_fd);
+            reply.emplace_back(makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())}));
+          } else {
+              // server_replies.emplace_back(makeArray({makeNilArray()}), client_fd);
+              reply.emplace_back(makeNilArray());
+          }
         }
+          server_replies.emplace_back(makeArray(reply), client_fd);
       }
 
     }
