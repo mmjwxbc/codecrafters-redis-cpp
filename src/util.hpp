@@ -1,6 +1,12 @@
 #ifndef UTIL_HH
 #define UTIL_HH
 #include <string>
+
+struct Coordinates {
+    double latitude;
+    double longitude;
+};
+
 bool matchPattern(const std::string &, const std::string &);
 void escapeCRLF(const std::string&);
 void set_non_blocking(const int fd);
@@ -11,4 +17,5 @@ int check_longitude_latitude(double, double);
 std::string formatErrorLonLat(double, double);
 uint64_t encode(double latitude, double longitude);
 uint64_t encode(double latitude, double longitude);
+Coordinates decode(uint64_t geo_code);
 #endif

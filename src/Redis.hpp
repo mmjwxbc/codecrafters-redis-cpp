@@ -1090,6 +1090,28 @@ private:
         }
         server_replies.emplace_back(makeInterger(1), client_fd);
       }
+    } else if(command == "geopos") {
+      string set_name = items[1].strVal;
+
+      if(zsets.find(set_name) == zsets.end()) {
+        server_replies.emplace_back(makeNilArray(), client_fd);
+      } else {
+        auto &member_score = zsets[set_name].member_score;
+        string member = items[2].strVal;
+        if(member_score.find(member) != member_score.end()) {
+          double score = member_score[member];
+          auto [longitude, latitude] = decode(score);
+          std::stringstream ss_longitude;
+          ss_longitude << std::setprecision(6) << longitude;
+          std::stringstream ss_latitude;
+          ss_longitude << std::setprecision(6) << latitude;
+
+          server_replies.emplace_back(makeArray({makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())})}), client_fd);
+        } else {
+          server_replies.emplace_back(makeNilArray(), client_fd);
+        }
+      }
+
     }
   end:
     if (client_fd == _master_fd) {
