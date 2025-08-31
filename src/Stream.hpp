@@ -4,7 +4,6 @@
 #include <map>
 #include <memory>
 #include <utility>
-#include <iostream>
 struct RedisStreamEntry {
     std::string entry_id;
     std::vector<std::pair<std::string, std::string>> fields;
