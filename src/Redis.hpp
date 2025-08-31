@@ -1107,13 +1107,21 @@ private:
           if(member_score.find(member) != member_score.end()) {
             double score = member_score[member];
             auto [longitude, latitude] = decode(score);
-            std::stringstream ss_longitude;
-            ss_longitude << std::setprecision(17) << longitude;
-            std::stringstream ss_latitude;
-            ss_latitude << std::setprecision(17) << latitude;
+            // std::stringstream ss_longitude;
+            // ss_longitude << std::setprecision(17) << longitude;
+            // std::stringstream ss_latitude;
+            // ss_latitude << std::setprecision(17) << latitude;
 
-            // server_replies.emplace_back(makeArray({makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())})}), client_fd);
-            reply.emplace_back(makeArray({makeBulk(ss_latitude.str()), makeBulk(ss_longitude.str())}));
+            // // server_replies.emplace_back(makeArray({makeArray({makeBulk(ss_longitude.str()), makeBulk(ss_latitude.str())})}), client_fd);
+            // reply.emplace_back(makeArray({makeBulk(ss_latitude.str()), makeBulk(ss_longitude.str())}));
+          char buf[64];
+          snprintf(buf, sizeof(buf), "%.17g", longitude);
+          std::string lonStr(buf);
+
+          snprintf(buf, sizeof(buf), "%.17g", latitude);
+          std::string latStr(buf);
+
+          reply.emplace_back(makeArray({makeBulk(lonStr), makeBulk(latStr)}));
           } else {
               // server_replies.emplace_back(makeArray({makeNilArray()}), client_fd);
               reply.emplace_back(makeNilArray());
