@@ -1107,8 +1107,8 @@ private:
           string member = items[i].strVal;
           if(member_score.find(member) != member_score.end()) {
             double score = member_score[member];
-            // auto [longitude, latitude] = decode(score);
-            auto [latitude, longitude] = decode(score);
+            auto [longitude, latitude] = decode(score);
+            // auto [latitude, longitude] = decode(score);
             // std::stringstream ss_longitude;
             // ss_longitude << std::setprecision(17) << longitude;
             // std::stringstream ss_latitude;
