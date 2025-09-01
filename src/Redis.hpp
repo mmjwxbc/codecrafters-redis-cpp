@@ -1137,8 +1137,9 @@ private:
         double score1 = member_score[city1];
         double score2 = member_score[city2];
         auto [longitude1, latitude1] = decode(score1);
-        auto [longitude2, latitude2] = decode(score1);
+        auto [longitude2, latitude2] = decode(score2);
         double dist = geohashGetDistance(longitude1, latitude1, longitude2, latitude2);
+        cout << "dist " <<  dist << endl;
         char buf[64];
         snprintf(buf, sizeof(buf), "%.17g", dist);
         std::string retval(buf);
