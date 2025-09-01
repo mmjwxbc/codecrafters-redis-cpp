@@ -1130,7 +1130,8 @@ private:
         }
           server_replies.emplace_back(makeArray(reply), client_fd);
       }
-
+    } else if(command == "command") {
+        server_replies.emplace_back(makeArray({}), client_fd);
     }
   end:
     if (client_fd == _master_fd) {
