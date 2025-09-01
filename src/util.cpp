@@ -107,10 +107,6 @@ double geohashGetDistance(double lon1d, double lat1d, double lon2d, double lat2d
     double lon2r = deg_rad(lon2d);
     double v = std::sin((lon2r - lon1r) / 2.0);
 
-    if (v == 0.0) {
-        return geohashGetLatDistance(lat1d, lat2d);
-    }
-
     double lat1r = deg_rad(lat1d);
     double lat2r = deg_rad(lat2d);
     double u = std::sin((lat2r - lat1r) / 2.0);
