@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <iostream>
 #include <iterator>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -1106,7 +1107,8 @@ private:
           string member = items[i].strVal;
           if(member_score.find(member) != member_score.end()) {
             double score = member_score[member];
-            auto [longitude, latitude] = decode(score);
+            // auto [longitude, latitude] = decode(score);
+            auto [latitude, longitude] = decode(score);
             // std::stringstream ss_longitude;
             // ss_longitude << std::setprecision(17) << longitude;
             // std::stringstream ss_latitude;
@@ -1144,6 +1146,29 @@ private:
         snprintf(buf, sizeof(buf), "%.17g", dist);
         std::string retval(buf);
         server_replies.emplace_back(makeBulk(retval), client_fd);
+    } else if(command == "geosearch") {
+        string set_name = items[1].strVal;
+        // longitude: 2, latitude: 48
+        double longitude = strtod(items[3].strVal.c_str(), NULL);
+        double latitude = strtod(items[4].strVal.c_str(), NULL);
+        double merge = strtod(items[6].strVal.c_str(), NULL);
+        string scale = items[7].strVal;
+        double scale_size = 0;
+        if (scale == "m") scale_size = 1;
+        else if (scale == "km") scale_size = 1000;
+        else if (scale == "mi") scale_size = 1609.344;
+        vector<RedisReply> reply;
+        if(zsets.find(set_name) != zsets.end()) {
+          auto &member_score = zsets[set_name].member_score;
+          for(auto it : member_score) {
+            auto [latitude1, longitude1] = decode(it.second);
+            double dist = geohashGetDistance(longitude1, latitude1, longitude, latitude);
+            if(dist < merge * scale_size) {
+              reply.emplace_back(makeBulk(it.first));
+            }
+          }
+        }
+        server_replies.emplace_back(reply, client_fd);
     } else if(command == "command") {
         server_replies.emplace_back(makeArray({}), client_fd);
     }
