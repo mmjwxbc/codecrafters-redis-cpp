@@ -18,4 +18,5 @@ std::string formatErrorLonLat(double, double);
 uint64_t encode(double latitude, double longitude);
 uint64_t encode(double latitude, double longitude);
 Coordinates decode(uint64_t geo_code);
+double geohashGetDistance(double lon1d, double lat1d, double lon2d, double lat2d);
 #endif

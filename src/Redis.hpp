@@ -1107,7 +1107,6 @@ private:
           if(member_score.find(member) != member_score.end()) {
             double score = member_score[member];
             auto [longitude, latitude] = decode(score);
-            cout << longitude << " " << latitude << endl;
             // std::stringstream ss_longitude;
             // ss_longitude << std::setprecision(17) << longitude;
             // std::stringstream ss_latitude;
@@ -1117,10 +1116,10 @@ private:
             // reply.emplace_back(makeArray({makeBulk(ss_latitude.str()), makeBulk(ss_longitude.str())}));
           char buf[64];
           snprintf(buf, sizeof(buf), "%.17g", longitude);
-          std::string lonStr(buf);
+          string lonStr(buf);
 
           snprintf(buf, sizeof(buf), "%.17g", latitude);
-          std::string latStr(buf);
+          string latStr(buf);
 
           reply.emplace_back(makeArray({makeBulk(latStr), makeBulk(lonStr)}));
           } else {
@@ -1130,6 +1129,20 @@ private:
         }
           server_replies.emplace_back(makeArray(reply), client_fd);
       }
+    } else if(command == "geodist") {
+        string set_name = items[1].strVal;
+        auto &member_score = zsets[set_name].member_score;
+        string city1 = items[2].strVal;
+        string city2 = items[3].strVal;
+        double score1 = member_score[city1];
+        double score2 = member_score[city2];
+        auto [longitude1, latitude1] = decode(score1);
+        auto [longitude2, latitude2] = decode(score1);
+        double dist = geohashGetDistance(longitude1, latitude1, longitude2, latitude2);
+        char buf[64];
+        snprintf(buf, sizeof(buf), "%.17g", dist);
+        std::string retval(buf);
+        server_replies.emplace_back(makeBulk(retval), client_fd);
     } else if(command == "command") {
         server_replies.emplace_back(makeArray({}), client_fd);
     }

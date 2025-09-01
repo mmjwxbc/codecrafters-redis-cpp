@@ -1,7 +1,5 @@
-#include <iostream>
 #include <cstdint>
 #include <cmath>
-#include <vector>
 #include <string>
 
 constexpr double MIN_LATITUDE = -85.05112878;
