@@ -1499,7 +1499,7 @@ private:
         string password = items[3].strVal;
         userInfos[client_fd].passwords.push_back(sha256(password));
         userInfos[client_fd].nopass = false;
-        server_replies.emplace_back(makeBulk("OK"), client_fd);
+        server_replies.emplace_back(makeString("OK"), client_fd);
       }
     }
   end:
