@@ -1469,7 +1469,7 @@ private:
       {
         vector<RedisReply> reply;
         reply.emplace_back(makeBulk("flags"));
-        if (！userInfo.nopass)
+        if (userInfo.nopass == false)
         {
           reply.emplace_back(makeArray({}));
         }
