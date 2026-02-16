@@ -1466,7 +1466,7 @@ private:
       }
       else if (items.size() == 3 && items[1].strVal == "GETUSER")
       {
-        server_replies.emplace_back(makeArray({makeBulk("default"), makeArray({})}), client_fd);
+        server_replies.emplace_back(makeArray({makeBulk("flags"), makeArray({})}), client_fd);
       }
     }
   end:
