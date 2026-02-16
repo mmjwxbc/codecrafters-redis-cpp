@@ -9,6 +9,7 @@
 #include "TimerEvent.hpp"
 #include "util.hpp"
 #include "RedisSet.hpp"
+#include "User.hpp"
 #include <algorithm>
 #include <arpa/inet.h>
 #include <cctype>
@@ -68,6 +69,7 @@ private:
   unordered_map<string, set<int>> channel_subscribers;
   unordered_map<int, set<string>> client_subscribe_channels;
   unordered_map<string, SortedSet> zsets;
+  unordered_map<int, UserInfo> userInfos;
 
 public:
   Redis(string dir, string dbfilename, int cur_db = 0,
@@ -75,9 +77,7 @@ public:
         string replicaof = "",
         const string &host = Protocol::DEFAULT_HOST,
         int connection_backlog = 5)
-      : sockfd(-1), host(host), port(port), is_master(is_master),
-        connection_backlog(connection_backlog), cur_db(0), kvs(16),
-        key_elapsed_time_dbs(16)
+      : sockfd(-1), host(host), port(port), is_master(is_master), connection_backlog(connection_backlog), cur_db(0), kvs(16), key_elapsed_time_dbs(16)
   {
     if (!dir.empty() && !dbfilename.empty())
     {
@@ -1460,13 +1460,46 @@ private:
     }
     else if (command == "acl")
     {
+      UserInfo userInfo = userInfos[client_fd];
       if (items.size() == 2 && items[1].strVal == "WHOAMI")
       {
-        server_replies.emplace_back(makeBulk("default"), client_fd);
+        server_replies.emplace_back(makeBulk(userInfo.username), client_fd);
       }
       else if (items.size() == 3 && items[1].strVal == "GETUSER")
       {
-        server_replies.emplace_back(makeArray({makeBulk("flags"), makeArray({makeBulk("nopass")}), makeBulk("passwords"), makeArray({})}), client_fd);
+        vector<RedisReply> reply;
+        reply.emplace_back(makeBulk("flags"));
+        if (userInfo.nopass)
+        {
+          reply.emplace_back(makeArray({}));
+        }
+        else
+        {
+          reply.emplace_back(makeArray({makeBulk("nopass")}));
+        }
+        reply.emplace_back(makeBulk("passwords"));
+        if (userInfo.nopass)
+        {
+          reply.emplace_back(makeArray({}));
+        }
+        else
+        {
+          vector<RedisReply> passwords;
+          for (auto &password : userInfo.passwords)
+          {
+            passwords.emplace_back(makeBulk(password));
+          }
+          reply.emplace_back(makeArray(passwords));
+        }
+        server_replies.emplace_back(makeArray(reply), client_fd);
+      }
+      else if (items.size() == 3 && items[1].strVal == "SETUSER")
+      {
+        string username = items[2].strVal;
+        string password = items[3].strVal;
+        userInfos[client_fd].passwords.push_back(sha256(password));
+        userInfos[client_fd].nopass = false;
+        server_replies.emplace_back(makeBulk("OK"), client_fd);
       }
     }
   end:
