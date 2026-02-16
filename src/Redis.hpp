@@ -1516,7 +1516,7 @@ private:
       blpop_events_by_time.erase({ev->expire_time, ev});
       string value = key_lists[key].front();
       key_lists[key].pop_front();
-      sendReply(makeArray({makeString(key), makeString(value)}), ev->client_fd);
+      sendReply(makeArray({makeBulk(key), makeBulk(value)}), ev->client_fd);
       auto &vec = blpop_events_by_key[key];
       vec.erase(remove(vec.begin(), vec.end(), ev), vec.end());
       delete ev;
