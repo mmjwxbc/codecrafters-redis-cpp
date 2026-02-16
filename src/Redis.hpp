@@ -480,6 +480,7 @@ private:
     vector<RedisReply> &items = reply.elements;
     string command = items.front().strVal;
     transform(command.begin(), command.end(), command.begin(), ::tolower);
+    cout << command << endl;
     // cout << "*****" << endl;
     // for (auto item : items) {
     //   cout << item.strVal << " " << endl;
@@ -1458,9 +1459,12 @@ private:
     {
       server_replies.emplace_back(makeArray({}), client_fd);
     }
-    else if (command == "acl whoami")
+    else if (command == "acl")
     {
-      server_replies.emplace_back(makeBulk("default"), client_fd);
+      if (items.size() == 2 && items[1].strVal == "WHOAMI")
+      {
+        server_replies.emplace_back(makeBulk("default"), client_fd);
+      }
     }
   end:
     if (client_fd == _master_fd)
