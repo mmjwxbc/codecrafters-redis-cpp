@@ -1493,7 +1493,7 @@ private:
         }
         server_replies.emplace_back(makeArray(reply), client_fd);
       }
-      else if (items.size() == 3 && items[1].strVal == "SETUSER")
+      else if (items.size() == 4 && items[1].strVal == "SETUSER")
       {
         string username = items[2].strVal;
         string password = items[3].strVal;
