@@ -480,7 +480,6 @@ private:
     vector<RedisReply> &items = reply.elements;
     string command = items.front().strVal;
     transform(command.begin(), command.end(), command.begin(), ::tolower);
-    cout << command << endl;
     // cout << "*****" << endl;
     // for (auto item : items) {
     //   cout << item.strVal << " " << endl;
@@ -573,7 +572,7 @@ private:
       {
         transform(items[3].strVal.begin(), items[3].strVal.end(),
                   command.begin(), ::tolower);
-        if (items[3].strVal == "px")
+        if (items[3].strVal == "px" || items[3].strVal == "PX")
         {
           key_elapsed_time_dbs[cur_db].insert_or_assign(
               key, currentTimeMillis() + stoi(items[4].strVal));
