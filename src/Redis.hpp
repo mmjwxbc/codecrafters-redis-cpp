@@ -1464,6 +1464,10 @@ private:
       {
         server_replies.emplace_back(makeBulk("default"), client_fd);
       }
+      else if (items.size() == 3 && items[1].strVal == "GETUSER")
+      {
+        server_replies.emplace_back(makeArray({makeBulk("default"), makeArray({})}), client_fd);
+      }
     }
   end:
     if (client_fd == _master_fd)
