@@ -1510,7 +1510,7 @@ private:
       {
         string username = items[2].strVal;
         string password = items[3].strVal;
-        userInfos[client_fd][username].passwords.push_back(sha256(password));
+        userInfos[client_fd][username].passwords.push_back(sha256(password.substr(1)));
         userInfos[client_fd][username].nopass = false;
         server_replies.emplace_back(makeString("OK"), client_fd);
       }
