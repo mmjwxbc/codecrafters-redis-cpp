@@ -70,6 +70,7 @@ int main(int argc, char **argv)
   if (master_fd != -1)
   {
     vector<RedisReply> master_reply;
+    redis.add_user(master_fd, "default");
     while (true)
     {
       optional<RedisReply> reply = redis.readOneReply(master_fd);

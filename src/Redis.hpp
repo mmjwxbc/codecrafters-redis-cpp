@@ -312,7 +312,7 @@ public:
 
   int del_user(int client_fd, const string &username)
   {
-    userInfos[username].verified_client.erase(client_fd);
+    // userInfos[username].verified_client.erase(client_fd);
     return 0;
   }
   int master_fd() { return _master_fd; }
