@@ -69,7 +69,7 @@ private:
   unordered_map<string, set<int>> channel_subscribers;
   unordered_map<int, set<string>> client_subscribe_channels;
   unordered_map<string, SortedSet> zsets;
-  unordered_map<int, unordered_map<string, UserInfo>> userInfos;
+  unordered_map<string, UserInfo> userInfos;
 
 public:
   Redis(string dir, string dbfilename, int cur_db = 0,
@@ -294,13 +294,25 @@ public:
 
   int add_user(int client_fd, const string &username)
   {
-    userInfos[client_fd].insert_or_assign(username, UserInfo{username, true, {}, {}});
+    if (userInfos.find(username) == userInfos.end())
+    {
+      userInfos.emplace(username, UserInfo{username, false, {}, {}, {}});
+      userInfos[username].verified_client.insert(client_fd);
+    }
+    else
+    {
+      UserInfo &user = userInfos[username];
+      if (user.nopass)
+      {
+        user.verified_client.insert(client_fd);
+      }
+    }
     return 0;
   }
 
-  int del_user(int client_fd)
+  int del_user(int client_fd, const string &username)
   {
-    userInfos.erase(client_fd);
+    userInfos[username].verified_client.erase(client_fd);
     return 0;
   }
   int master_fd() { return _master_fd; }
@@ -497,6 +509,11 @@ private:
     // }
     // cout << "*****" << endl;
     vector<RedisServerReply> server_replies;
+    if (userInfos.find("default")->second.verified_client.find(client_fd) == userInfos.find("default")->second.verified_client.end())
+    {
+      server_replies.emplace_back(makeError("NOAUTH Authentication required."), client_fd);
+      goto end;
+    }
     // cout << "client fd = " << client_fd << " " << items[0].strVal << "in sub = " << (client_subscribe_channels.find(client_fd) != client_subscribe_channels.end()) <<  endl;
     if (client_subscribe_channels.find(client_fd) != client_subscribe_channels.end())
     {
@@ -1474,13 +1491,14 @@ private:
       ;
       if (items.size() == 2 && items[1].strVal == "WHOAMI")
       {
-        UserInfo userInfo = userInfos[client_fd]["default"];
+        UserInfo userInfo = userInfos["default"];
         server_replies.emplace_back(makeBulk(userInfo.username), client_fd);
       }
       else if (items.size() == 3 && items[1].strVal == "GETUSER")
       {
         vector<RedisReply> reply;
-        UserInfo userInfo = userInfos[client_fd][items[2].strVal];
+        string username = items[2].strVal;
+        UserInfo userInfo = userInfos[username];
         reply.emplace_back(makeBulk("flags"));
         if (userInfo.nopass == false)
         {
@@ -1510,8 +1528,8 @@ private:
       {
         string username = items[2].strVal;
         string password = items[3].strVal;
-        userInfos[client_fd][username].passwords.push_back(sha256(password.substr(1)));
-        userInfos[client_fd][username].nopass = false;
+        userInfos[username].passwords.push_back(sha256(password.substr(1)));
+        userInfos[username].nopass = false;
         server_replies.emplace_back(makeString("OK"), client_fd);
       }
     }
@@ -1519,15 +1537,15 @@ private:
     {
       string username = items[1].strVal;
       string password = items[2].strVal;
-      if (userInfos[client_fd].find(username) == userInfos[client_fd].end())
+      if (userInfos.find(username) == userInfos.end())
       {
         server_replies.emplace_back(makeError("WRONGPASS invalid username-password pair or user is disabled."), client_fd);
       }
-      else if (userInfos[client_fd][username].nopass)
+      else if (userInfos[username].nopass)
       {
         server_replies.emplace_back(makeString("OK"), client_fd);
       }
-      else if (find(userInfos[client_fd][username].passwords.begin(), userInfos[client_fd][username].passwords.end(), sha256(password)) != userInfos[client_fd][username].passwords.end())
+      else if (find(userInfos[username].passwords.begin(), userInfos[username].passwords.end(), sha256(password)) != userInfos[username].passwords.end())
       {
         server_replies.emplace_back(makeString("OK"), client_fd);
       }

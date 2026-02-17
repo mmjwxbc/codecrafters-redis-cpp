@@ -169,7 +169,7 @@ int main(int argc, char **argv)
         redis.process_request(replies, fd);
         if (is_close)
         {
-          redis.del_user(fd);
+          redis.del_user(fd, "default");
           epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
           close(fd);
         }

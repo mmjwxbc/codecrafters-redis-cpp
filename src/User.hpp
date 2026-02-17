@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 struct UserInfo
 {
@@ -12,6 +13,7 @@ struct UserInfo
     bool nopass;
     std::vector<std::string> flags;
     std::vector<std::string> passwords;
+    std::unordered_set<int> verified_client;
 };
 
 std::string sha256(const std::string &input)
