@@ -1521,7 +1521,7 @@ private:
       string password = items[2].strVal;
       if (userInfos[client_fd].find(username) == userInfos[client_fd].end())
       {
-        server_replies.emplace_back(makeError("(error) WRONGPASS invalid username-password pair or user is disabled."), client_fd);
+        server_replies.emplace_back(makeError("WRONGPASS invalid username-password pair or user is disabled."), client_fd);
       }
       else if (userInfos[client_fd][username].nopass)
       {
@@ -1533,7 +1533,7 @@ private:
       }
       else
       {
-        server_replies.emplace_back(makeError("(error) WRONGPASS invalid username-password pair or user is disabled."), client_fd);
+        server_replies.emplace_back(makeError("WRONGPASS invalid username-password pair or user is disabled."), client_fd);
       }
     }
   end:
