@@ -1515,6 +1515,27 @@ private:
         server_replies.emplace_back(makeString("OK"), client_fd);
       }
     }
+    else if (command == "auth")
+    {
+      string username = items[1].strVal;
+      string password = items[2].strVal;
+      if (userInfos[client_fd].find(username) == userInfos[client_fd].end())
+      {
+        server_replies.emplace_back(makeError("(error) WRONGPASS invalid username-password pair or user is disabled."), client_fd);
+      }
+      else if (userInfos[client_fd][username].nopass)
+      {
+        server_replies.emplace_back(makeString("OK"), client_fd);
+      }
+      else if (find(userInfos[client_fd][username].passwords.begin(), userInfos[client_fd][username].passwords.end(), sha256(password)) != userInfos[client_fd][username].passwords.end())
+      {
+        server_replies.emplace_back(makeString("OK"), client_fd);
+      }
+      else
+      {
+        server_replies.emplace_back(makeError("(error) WRONGPASS invalid username-password pair or user is disabled."), client_fd);
+      }
+    }
   end:
     if (client_fd == _master_fd)
     {
