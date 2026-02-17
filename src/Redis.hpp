@@ -509,7 +509,7 @@ private:
     // }
     // cout << "*****" << endl;
     vector<RedisServerReply> server_replies;
-    if (userInfos.find("default")->second.verified_client.find(client_fd) == userInfos.find("default")->second.verified_client.end())
+    if (userInfos.find("default")->second.verified_client.find(client_fd) == userInfos.find("default")->second.verified_client.end() && command != "auth")
     {
       server_replies.emplace_back(makeError("NOAUTH Authentication required."), client_fd);
       goto end;
