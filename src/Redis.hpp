@@ -69,7 +69,7 @@ private:
   unordered_map<string, set<int>> channel_subscribers;
   unordered_map<int, set<string>> client_subscribe_channels;
   unordered_map<string, SortedSet> zsets;
-  unordered_map<int, UserInfo> userInfos;
+  unordered_map<int, unordered_map<string, UserInfo>> userInfos;
 
 public:
   Redis(string dir, string dbfilename, int cur_db = 0,
@@ -292,6 +292,17 @@ public:
     }
   }
 
+  int add_user(int client_fd, const string &username)
+  {
+    userInfos[client_fd].insert_or_assign(username, UserInfo{username, true, {}, {}});
+    return 0;
+  }
+
+  int del_user(int client_fd)
+  {
+    userInfos.erase(client_fd);
+    return 0;
+  }
   int master_fd() { return _master_fd; }
   void bind_listen()
   {
@@ -1460,14 +1471,16 @@ private:
     }
     else if (command == "acl")
     {
-      UserInfo userInfo = userInfos[client_fd];
+      ;
       if (items.size() == 2 && items[1].strVal == "WHOAMI")
       {
+        UserInfo userInfo = userInfos[client_fd]["default"];
         server_replies.emplace_back(makeBulk(userInfo.username), client_fd);
       }
       else if (items.size() == 3 && items[1].strVal == "GETUSER")
       {
         vector<RedisReply> reply;
+        UserInfo userInfo = userInfos[client_fd][items[2].strVal];
         reply.emplace_back(makeBulk("flags"));
         if (userInfo.nopass == false)
         {
@@ -1497,8 +1510,8 @@ private:
       {
         string username = items[2].strVal;
         string password = items[3].strVal;
-        userInfos[client_fd].passwords.push_back(sha256(password));
-        userInfos[client_fd].nopass = false;
+        userInfos[client_fd][username].passwords.push_back(sha256(password));
+        userInfos[client_fd][username].nopass = false;
         server_replies.emplace_back(makeString("OK"), client_fd);
       }
     }
