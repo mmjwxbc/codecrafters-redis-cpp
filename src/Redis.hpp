@@ -296,7 +296,7 @@ public:
   {
     if (userInfos.find(username) == userInfos.end())
     {
-      userInfos.emplace(username, UserInfo{username, false, {}, {}, {}});
+      userInfos.emplace(username, UserInfo{username, true, {}, {}, {}});
       userInfos[username].verified_client.insert(client_fd);
     }
     else
