@@ -1600,12 +1600,11 @@ private:
     }
     else if (command == "unwatch")
     {
-      for (size_t i = 1; i < items.size(); i++)
+      for (auto &key : client_watch_keys[client_fd].watched_keys)
       {
-        string key = items[i].strVal;
         watched_keys[key].erase(client_fd);
-        client_watch_keys[client_fd].watched_keys.erase(key);
       }
+      client_watch_keys.erase(client_fd);
       server_replies.emplace_back(makeString("OK"), client_fd);
     }
   end:
