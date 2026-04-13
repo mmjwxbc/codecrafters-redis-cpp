@@ -1598,123 +1598,135 @@ private:
       }
       server_replies.emplace_back(makeString("OK"), client_fd);
     }
-  end:
-    if (client_fd == _master_fd)
+    else if (command == "unwatch")
     {
-      processed_bytes += reply.len;
-    }
-    return server_replies;
-  }
-
-  string formatReply(const RedisReply &r)
-  {
-    ostringstream oss;
-    switch (r.type)
-    {
-    case REPLY_STRING:
-      oss << "+" << r.strVal << "\r\n";
-      break;
-    case REPLY_ERROR:
-      oss << "-" << r.strVal << "\r\n";
-      break;
-    case REPLY_INTEGER:
-      oss << ":" << r.intVal << "\r\n";
-      break;
-    case REPLY_BULK:
-      oss << "$" << r.strVal.size() << "\r\n"
-          << r.strVal << "\r\n";
-      break;
-    case REPLY_NIL:
-      oss << "$-1\r\n";
-      break;
-    case REPLY_NIL_ARRAY:
-      oss << "*-1\r\n";
-      break;
-    case REPLY_ARRAY:
-      oss << "*" << r.elements.size() << "\r\n";
-      for (const auto &sub : r.elements)
+      for (size_t i = 1; i < items.size(); i++)
       {
-        oss << formatReply({sub});
+        string key = items[i].strVal;
+        watched_keys[key].erase(client_fd);
+        client_watch_keys[client_fd].watched_keys.erase(key);
       }
-      break;
+      server_replies.emplace_back(makeString("OK"), client_fd);
     }
-    return oss.str();
   }
-
-  void check_blpop_event(string key)
+  end : if (client_fd == _master_fd)
   {
-    if (blpop_events_by_key.find(key) != blpop_events_by_key.end())
+    processed_bytes += reply.len;
+  }
+  return server_replies;
+}
+
+string
+formatReply(const RedisReply &r)
+{
+  ostringstream oss;
+  switch (r.type)
+  {
+  case REPLY_STRING:
+    oss << "+" << r.strVal << "\r\n";
+    break;
+  case REPLY_ERROR:
+    oss << "-" << r.strVal << "\r\n";
+    break;
+  case REPLY_INTEGER:
+    oss << ":" << r.intVal << "\r\n";
+    break;
+  case REPLY_BULK:
+    oss << "$" << r.strVal.size() << "\r\n"
+        << r.strVal << "\r\n";
+    break;
+  case REPLY_NIL:
+    oss << "$-1\r\n";
+    break;
+  case REPLY_NIL_ARRAY:
+    oss << "*-1\r\n";
+    break;
+  case REPLY_ARRAY:
+    oss << "*" << r.elements.size() << "\r\n";
+    for (const auto &sub : r.elements)
     {
-      auto *ev = blpop_events_by_key[key].front();
-      blpop_events_by_time.erase({ev->expire_time, ev});
-      string value = key_lists[key].front();
-      key_lists[key].pop_front();
-      sendReply(makeArray({makeBulk(key), makeBulk(value)}), ev->client_fd);
-      auto &vec = blpop_events_by_key[key];
-      vec.erase(remove(vec.begin(), vec.end(), ev), vec.end());
-      delete ev;
+      oss << formatReply({sub});
     }
+    break;
   }
+  return oss.str();
+}
 
-  void handle_blpop_timeout(int client_fd)
+void check_blpop_event(string key)
+{
+  if (blpop_events_by_key.find(key) != blpop_events_by_key.end())
   {
-    sendReply(makeNilArray(), client_fd);
+    auto *ev = blpop_events_by_key[key].front();
+    blpop_events_by_time.erase({ev->expire_time, ev});
+    string value = key_lists[key].front();
+    key_lists[key].pop_front();
+    sendReply(makeArray({makeBulk(key), makeBulk(value)}), ev->client_fd);
+    auto &vec = blpop_events_by_key[key];
+    vec.erase(remove(vec.begin(), vec.end(), ev), vec.end());
+    delete ev;
   }
+}
 
-  RedisReply makeBulk(const string &s)
-  {
-    RedisReply r;
-    r.type = REPLY_BULK;
-    r.strVal = s;
-    return r;
-  }
+void handle_blpop_timeout(int client_fd)
+{
+  sendReply(makeNilArray(), client_fd);
+}
 
-  RedisReply makeNIL()
-  {
-    RedisReply r;
-    r.type = REPLY_NIL;
-    return r;
-  }
+RedisReply makeBulk(const string &s)
+{
+  RedisReply r;
+  r.type = REPLY_BULK;
+  r.strVal = s;
+  return r;
+}
 
-  RedisReply makeInterger(const int val)
-  {
-    RedisReply r;
-    r.type = REPLY_INTEGER;
-    // r.strVal = s;
-    r.intVal = val;
-    return r;
-  }
+RedisReply makeNIL()
+{
+  RedisReply r;
+  r.type = REPLY_NIL;
+  return r;
+}
 
-  RedisReply makeArray(const vector<RedisReply> &elements)
-  {
-    RedisReply r;
-    r.type = REPLY_ARRAY;
-    r.elements = elements;
-    return r;
-  }
+RedisReply makeInterger(const int val)
+{
+  RedisReply r;
+  r.type = REPLY_INTEGER;
+  // r.strVal = s;
+  r.intVal = val;
+  return r;
+}
 
-  RedisReply makeString(const string &s)
-  {
-    RedisReply r;
-    r.type = REPLY_STRING;
-    r.strVal = s;
-    return r;
-  }
+RedisReply makeArray(const vector<RedisReply> &elements)
+{
+  RedisReply r;
+  r.type = REPLY_ARRAY;
+  r.elements = elements;
+  return r;
+}
 
-  RedisReply makeError(const string &s)
-  {
-    RedisReply r;
-    r.type = REPLY_ERROR;
-    r.strVal = s;
-    return r;
-  }
+RedisReply makeString(const string &s)
+{
+  RedisReply r;
+  r.type = REPLY_STRING;
+  r.strVal = s;
+  return r;
+}
 
-  RedisReply makeNilArray()
-  {
-    RedisReply r;
-    r.type = REPLY_NIL_ARRAY;
-    return r;
-  }
-};
+RedisReply makeError(const string &s)
+{
+  RedisReply r;
+  r.type = REPLY_ERROR;
+  r.strVal = s;
+  return r;
+}
+
+RedisReply makeNilArray()
+{
+  RedisReply r;
+  r.type = REPLY_NIL_ARRAY;
+  return r;
+}
+}
+;
 
 #endif // REDIS_HH
