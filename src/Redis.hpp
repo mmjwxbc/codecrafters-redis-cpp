@@ -549,6 +549,11 @@ private:
       if (multi_queue.find(client_fd) != multi_queue.end())
       {
         multi_queue.erase(client_fd);
+        for (auto &key : client_watch_keys[client_fd].watched_keys)
+        {
+          watched_keys[key].erase(client_fd);
+        }
+        client_watch_keys.erase(client_fd);
         server_replies.emplace_back(makeString("OK"), client_fd);
       }
       else
