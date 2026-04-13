@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_set>
+#include <set>
 
 struct UserInfo
 {
@@ -28,3 +29,13 @@ std::string sha256(const std::string &input)
     }
     return oss.str();
 }
+
+struct client_watch_key
+{
+    std::set<std::string> watched_keys;
+
+    bool in_transaction; // 是否已发送 MULTI
+    bool dirty_cas;      // 关键：WATCH 的 Key 是否被修改 (CLIENT_DIRTY_CAS)
+
+    client_watch_key() : in_transaction(false), dirty_cas(false) {}
+};

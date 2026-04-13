@@ -70,6 +70,8 @@ private:
   unordered_map<int, set<string>> client_subscribe_channels;
   unordered_map<string, SortedSet> zsets;
   unordered_map<string, UserInfo> userInfos;
+  unordered_map<string, set<int>> watched_keys;
+  unordered_map<int, client_watch_key> client_watch_keys;
 
 public:
   Redis(string dir, string dbfilename, int cur_db = 0,
@@ -559,7 +561,11 @@ private:
     {
       if (multi_queue.find(client_fd) != multi_queue.end())
       {
-        if (multi_queue[client_fd].empty())
+        if (client_watch_keys.count(client_fd) && client_watch_keys[client_fd].dirty_cas)
+        {
+          server_replies.emplace_back(makeNilArray(), client_fd);
+        }
+        else if (multi_queue[client_fd].empty())
         {
           // cout << "multi queue empty" << endl;
           multi_queue.erase(client_fd);
@@ -613,6 +619,18 @@ private:
         }
       }
       // store[key] = value;
+      bool is_dirty = true;
+      if (kvs[cur_db].count(key))
+      {
+        is_dirty = value != kvs[cur_db][key];
+      }
+      if (is_dirty && watched_keys.count(key))
+      {
+        for (int fd : watched_keys[key])
+        {
+          client_watch_keys[fd].dirty_cas = true;
+        }
+      }
       kvs[cur_db].insert_or_assign(key, value);
       // cout << "is_master = " << is_master << " SET " << key << " " <<
       // value << endl;
@@ -1047,6 +1065,13 @@ private:
               makeError("ERR value is not an integer or out of range"),
               client_fd);
           goto end;
+        }
+        if (watched_keys.count(key))
+        {
+          for (int fd : watched_keys[key])
+          {
+            client_watch_keys[fd].dirty_cas = true;
+          }
         }
         int val = stoi(kvs[cur_db][key]);
         val++;
@@ -1566,6 +1591,8 @@ private:
       for (size_t i = 1; i < items.size(); i++)
       {
         string key = items[i].strVal;
+        watched_keys[key].insert(client_fd);
+        client_watch_keys[client_fd].watched_keys.insert(key);
       }
       server_replies.emplace_back(makeString("OK"), client_fd);
     }
