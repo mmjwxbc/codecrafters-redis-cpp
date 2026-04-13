@@ -532,6 +532,12 @@ private:
         command != "discard")
     {
       // cout << "in multi mode" << endl;
+      if (command == "watch")
+      {
+        server_replies.emplace_back(makeError("WATCH inside MULTI is not allowed"), client_fd);
+        multi_queue.erase(client_fd);
+        goto end;
+      }
       multi_queue[client_fd].emplace_back(reply);
       //   sendReply({makeString("QUEUED")}, client_fd);
       server_replies.emplace_back(makeString("QUEUED"), client_fd);
