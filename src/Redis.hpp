@@ -1555,6 +1555,14 @@ private:
         server_replies.emplace_back(makeError("WRONGPASS invalid username-password pair or user is disabled."), client_fd);
       }
     }
+    else if (command == "watch")
+    {
+      for (size_t i = 1; i < items.size(); i++)
+      {
+        string key = items[i].strVal;
+      }
+      server_replies.emplace_back(makeString("OK"), client_fd);
+    }
   end:
     if (client_fd == _master_fd)
     {
