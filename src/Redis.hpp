@@ -563,6 +563,8 @@ private:
       {
         if (client_watch_keys.count(client_fd) && client_watch_keys[client_fd].dirty_cas)
         {
+          multi_queue.erase(client_fd);
+          client_watch_keys.erase(client_fd);
           server_replies.emplace_back(makeNilArray(), client_fd);
         }
         else if (multi_queue[client_fd].empty())
